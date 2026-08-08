@@ -54,12 +54,15 @@ func (r *requestRepo) GetByID(ctx context.Context, id bson.ObjectID) (*domain.Re
 	return &req, nil
 }
 
-func (r *requestRepo) ListOpen(ctx context.Context, stack string) ([]*domain.Request, error) {
+func (r *requestRepo) ListOpen(ctx context.Context, stack string, clientID *bson.ObjectID) ([]*domain.Request, error) {
 	filter := bson.M{
 		"status": domain.RequestStatusOpen,
 	}
 	if stack != "" {
 		filter["stack"] = stack
+	}
+	if clientID != nil {
+		filter["client_id"] = clientID
 	}
 
 	opts := options.Find().SetSort(bson.D{{Key: "created_at", Value: -1}})

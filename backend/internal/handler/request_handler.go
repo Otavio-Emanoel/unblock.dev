@@ -9,6 +9,7 @@ import (
 	"unblock-backend/pkg/response"
 
 	"github.com/go-chi/chi/v5"
+	"go.mongodb.org/mongo-driver/v2/bson"
 )
 
 type RequestHandler struct {
@@ -46,10 +47,39 @@ func (h *RequestHandler) CreateSOS(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *RequestHandler) ListOpen(w http.ResponseWriter, r *http.Request) {
+	user, ok := r.Context().Value("user").(*domain.User)
+	if !ok || user == nil {
+		response.Error(w, http.StatusUnauthorized, "Unauthorized")
+		return
+	}
+
 	stack := r.URL.Query().Get("stack")
-	reqs, err := h.reqRepo.ListOpen(r.Context(), stack)
+
+	var clientID *bson.ObjectID
+	if user.Role != domain.RoleMentor && user.Role != domain.RoleAdmin {
+		// Non-mentors (clients) can ONLY see their own open requests
+		clientID = &user.ID
+	}
+
+	reqs, err := h.reqRepo.ListOpen(r.Context(), stack, clientID)
 	if err != nil {
 		response.Error(w, http.StatusInternalServerError, "Failed to list open requests")
+		return
+	}
+
+	response.JSON(w, http.StatusOK, reqs)
+}
+
+func (h *RequestHandler) ListMy(w http.ResponseWriter, r *http.Request) {
+	user, ok := r.Context().Value("user").(*domain.User)
+	if !ok || user == nil {
+		response.Error(w, http.StatusUnauthorized, "Unauthorized")
+		return
+	}
+
+	reqs, err := h.reqRepo.ListByClient(r.Context(), user.ID)
+	if err != nil {
+		response.Error(w, http.StatusInternalServerError, "Failed to list user requests")
 		return
 	}
 

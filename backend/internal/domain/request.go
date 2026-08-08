@@ -37,7 +37,7 @@ type Request struct {
 type RequestRepository interface {
 	Create(ctx context.Context, req *Request) error
 	GetByID(ctx context.Context, id bson.ObjectID) (*Request, error)
-	ListOpen(ctx context.Context, stack string) ([]*Request, error)
+	ListOpen(ctx context.Context, stack string, clientID *bson.ObjectID) ([]*Request, error)
 	ListByClient(ctx context.Context, clientID bson.ObjectID) ([]*Request, error)
 	UpdateStatus(ctx context.Context, id bson.ObjectID, status RequestStatus, mentorID *bson.ObjectID) error
 }

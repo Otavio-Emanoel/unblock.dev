@@ -116,6 +116,7 @@ func main() {
 		// SOS Requests
 		pr.Post("/api/requests", reqHandler.CreateSOS)
 		pr.Get("/api/requests/open", reqHandler.ListOpen)
+		pr.Get("/api/requests/my", reqHandler.ListMy)
 		pr.Post("/api/requests/{id}/accept", reqHandler.AcceptSOS)
 
 		// Sessions
