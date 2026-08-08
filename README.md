@@ -45,6 +45,20 @@ O **Unblock.dev** é uma plataforma de pair programming em tempo real no modelo 
 
 ---
 
+## 💳 Planos & Pacotes de Crédito (Pay-Per-Minute)
+
+O **Unblock.dev** adota um modelo transparente de **cobrança por minuto (Pay-Per-Minute)**. O usuário recarrega a carteira digital e os créditos são debitados em tempo real (segundo a segundo via `TickerEngine` em Go) estritamente durante o tempo ativo da chamada de pair programming na sala `/room/[id]`.
+
+### Pacotes de Recarga Disponíveis
+
+| Pacote | Valor | Minutos Estimados | Indicado Para | Diferenciais Chave |
+| --- | --- | --- | --- | --- |
+| **Pacote Starter** | **R$ 30,00** | ~12 min | Dúvidas pontuais, erros de compilação e syntax bugs | Match direto com mentores, Vídeo HD WebRTC + Monaco Editor CRDT |
+| **Pacote Pro** *(Mais Popular)* | **R$ 60,00** | ~24 min | Bugs de concorrência, Redis locks, refatorações complexas | Prioridade na fila de match (&lt; 90s), recargas Pix/Cartão instantâneas, exportação de código |
+| **Pacote Senior** | **R$ 150,00** | ~60 min | Arquitetura de sistemas, tuning SQL, Kubernetes, Go microservices | Mentores especialistas Tier-1, prioridade máxima de chamado, sessões estendidas |
+
+---
+
 ## 🛠️ Stack Tecnológica
 
 ### Frontend (`/frontend`)
