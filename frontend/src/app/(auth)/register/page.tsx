@@ -135,15 +135,22 @@ export default function RegisterPage() {
               </p>
             </div>
 
-            {/* Role Selection Segmented Control */}
-            <div className="grid grid-cols-2 gap-2 p-1.5 bg-slate-900/80 rounded-xl border border-white/10">
+            {/* Animated Role Switcher */}
+            <div className="relative p-1 bg-slate-900/90 rounded-2xl border border-white/10 flex items-center shadow-inner overflow-hidden">
+              {/* Sliding Pill Indicator */}
+              <div
+                className={`absolute top-1 bottom-1 w-[calc(50%-4px)] rounded-xl transition-all duration-300 ease-out shadow-lg ${
+                  role === "dev"
+                    ? "left-1 bg-indigo-600 border border-indigo-400/40 glow-primary"
+                    : "left-[calc(50%+2px)] bg-emerald-600 border border-emerald-400/40 glow-success"
+                }`}
+              />
+
               <button
                 type="button"
                 onClick={() => setRole("dev")}
-                className={`py-2.5 px-3 rounded-lg text-xs font-semibold transition flex items-center justify-center gap-2 ${
-                  role === "dev"
-                    ? "bg-indigo-600 text-white shadow-md glow-primary"
-                    : "text-slate-400 hover:text-white"
+                className={`relative z-10 flex-1 py-2.5 px-3 rounded-xl text-xs transition-colors duration-300 flex items-center justify-center gap-2 ${
+                  role === "dev" ? "text-white font-bold" : "text-slate-400 hover:text-slate-200"
                 }`}
               >
                 <Code2 className="w-4 h-4" />
@@ -153,10 +160,8 @@ export default function RegisterPage() {
               <button
                 type="button"
                 onClick={() => setRole("mentor")}
-                className={`py-2.5 px-3 rounded-lg text-xs font-semibold transition flex items-center justify-center gap-2 ${
-                  role === "mentor"
-                    ? "bg-emerald-600 text-white shadow-md glow-success"
-                    : "text-slate-400 hover:text-white"
+                className={`relative z-10 flex-1 py-2.5 px-3 rounded-xl text-xs transition-colors duration-300 flex items-center justify-center gap-2 ${
+                  role === "mentor" ? "text-white font-bold" : "text-slate-400 hover:text-slate-200"
                 }`}
               >
                 <ShieldCheck className="w-4 h-4" />
