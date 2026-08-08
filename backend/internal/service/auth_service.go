@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net/mail"
+	"strings"
 	"time"
 
 	"unblock-backend/internal/domain"
@@ -50,8 +52,48 @@ type AuthResponseDTO struct {
 }
 
 func (s *AuthService) Register(ctx context.Context, dto RegisterDTO) (*AuthResponseDTO, error) {
+	name := strings.TrimSpace(dto.Name)
+	if name == "" {
+		return nil, errors.New("name is required")
+	}
+	if len(name) < 2 {
+		return nil, errors.New("name must be at least 2 characters long")
+	}
+
+	email := strings.ToLower(strings.TrimSpace(dto.Email))
+	if email == "" {
+		return nil, errors.New("email is required")
+	}
+	if _, err := mail.ParseAddress(email); err != nil {
+		return nil, errors.New("invalid email format")
+	}
+
+	if dto.Password == "" {
+		return nil, errors.New("password is required")
+	}
+	if len(dto.Password) < 6 {
+		return nil, errors.New("password must be at least 6 characters long")
+	}
+
+	role := dto.Role
+	if role == "" {
+		role = domain.RoleClient
+	}
+	if role != domain.RoleClient && role != domain.RoleMentor && role != domain.RoleAdmin {
+		return nil, errors.New("invalid role. Must be 'client' or 'mentor'")
+	}
+
+	if role == domain.RoleMentor {
+		if dto.MinuteRateCents <= 0 {
+			return nil, errors.New("minute rate must be greater than zero for mentors")
+		}
+		if len(dto.Skills) == 0 {
+			return nil, errors.New("at least one skill is required for mentors")
+		}
+	}
+
 	// Check if user already exists
-	existing, err := s.userRepo.GetByEmail(ctx, dto.Email)
+	existing, err := s.userRepo.GetByEmail(ctx, email)
 	if err != nil {
 		return nil, fmt.Errorf("database error: %w", err)
 	}
@@ -64,14 +106,9 @@ func (s *AuthService) Register(ctx context.Context, dto RegisterDTO) (*AuthRespo
 		return nil, fmt.Errorf("failed to hash password: %w", err)
 	}
 
-	role := dto.Role
-	if role == "" {
-		role = domain.RoleClient
-	}
-
 	user := &domain.User{
-		Name:         dto.Name,
-		Email:        dto.Email,
+		Name:         name,
+		Email:        email,
 		PasswordHash: string(hash),
 		Role:         role,
 		Wallet: domain.Wallet{
@@ -79,19 +116,15 @@ func (s *AuthService) Register(ctx context.Context, dto RegisterDTO) (*AuthRespo
 			Currency:     "BRL",
 		},
 		SocialLinks: domain.SocialLinks{
-			GitHub:   dto.GitHub,
-			LinkedIn: dto.LinkedIn,
+			GitHub:   strings.TrimSpace(dto.GitHub),
+			LinkedIn: strings.TrimSpace(dto.LinkedIn),
 		},
 	}
 
 	if role == domain.RoleMentor {
-		rate := dto.MinuteRateCents
-		if rate <= 0 {
-			rate = 300 // default R$ 3,00 / min
-		}
 		user.MentorProfile = &domain.MentorProfile{
-			Bio:             dto.Bio,
-			MinuteRateCents: rate,
+			Bio:             strings.TrimSpace(dto.Bio),
+			MinuteRateCents: dto.MinuteRateCents,
 			Skills:          dto.Skills,
 			IsOnline:        true,
 			RatingAvg:       5.0,
@@ -116,7 +149,15 @@ func (s *AuthService) Register(ctx context.Context, dto RegisterDTO) (*AuthRespo
 }
 
 func (s *AuthService) Login(ctx context.Context, email, password string) (*AuthResponseDTO, error) {
-	user, err := s.userRepo.GetByEmail(ctx, email)
+	cleanEmail := strings.ToLower(strings.TrimSpace(email))
+	if cleanEmail == "" {
+		return nil, errors.New("email is required")
+	}
+	if password == "" {
+		return nil, errors.New("password is required")
+	}
+
+	user, err := s.userRepo.GetByEmail(ctx, cleanEmail)
 	if err != nil {
 		return nil, fmt.Errorf("database error: %w", err)
 	}

@@ -127,4 +127,26 @@ func TestAuthService_RegisterAndLogin(t *testing.T) {
 	if err == nil {
 		t.Errorf("Expected error for wrong password, got nil")
 	}
+
+	// 5. Validation Error Tests
+	testCases := []struct {
+		name string
+		dto  service.RegisterDTO
+	}{
+		{"Empty Name", service.RegisterDTO{Name: "", Email: "valid@unblock.dev", Password: "password123"}},
+		{"Empty Email", service.RegisterDTO{Name: "User", Email: "", Password: "password123"}},
+		{"Invalid Email", service.RegisterDTO{Name: "User", Email: "invalid-email", Password: "password123"}},
+		{"Short Password", service.RegisterDTO{Name: "User", Email: "valid@unblock.dev", Password: "123"}},
+		{"Mentor without Rate", service.RegisterDTO{Name: "Mentor", Email: "m@unblock.dev", Password: "password123", Role: domain.RoleMentor, MinuteRateCents: 0, Skills: []string{"Go"}}},
+		{"Mentor without Skills", service.RegisterDTO{Name: "Mentor", Email: "m2@unblock.dev", Password: "password123", Role: domain.RoleMentor, MinuteRateCents: 300, Skills: []string{}}},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			_, err := authSvc.Register(ctx, tc.dto)
+			if err == nil {
+				t.Errorf("Expected validation error for %s, got nil", tc.name)
+			}
+		})
+	}
 }
