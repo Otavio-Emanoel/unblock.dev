@@ -1,0 +1,40 @@
+{
+  "name": "stitch-build",
+  "version": "1.0.0",
+  "description": "Code generation and build tools for Google Stitch: convert designs to React components, create Remotion walkthroughs, and integrate shadcn/ui.",
+  "author": {
+    "name": "google-labs-code"
+  },
+  "homepage": "https://github.com/google-labs-code/stitch-skills",
+  "repository": "https://github.com/google-labs-code/stitch-skills",
+  "license": "Apache-2.0",
+  "keywords": [
+    "stitch",
+    "react",
+    "components",
+    "remotion",
+    "shadcn-ui",
+    "code-generation",
+    "video"
+  ],
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "Stitch Build",
+    "shortDescription": "Build from Google Stitch designs",
+    "longDescription": "Use Google Stitch build tools to convert Stitch screens into React component systems, generate walkthrough videos with Remotion, and work with shadcn/ui integration patterns.",
+    "developerName": "google-labs-code",
+    "category": "Coding",
+    "capabilities": [
+      "Interactive",
+      "Write"
+    ],
+    "websiteURL": "https://github.com/google-labs-code/stitch-skills",
+    "defaultPrompt": [
+      "Convert these Stitch screens to React components",
+      "Generate a walkthrough video for this Stitch project",
+      "Set up shadcn/ui for this design"
+    ],
+    "brandColor": "#34A853",
+    "screenshots": []
+  }
+}

@@ -1,0 +1,20 @@
+{
+  "name": "stitch-design",
+  "description": "Design workflows for Google Stitch — convert code to designs, generate screens from text/images, manage design systems, extract static HTML, and upload assets.",
+  "version": "1.0.0",
+  "author": {
+    "name": "google-labs-code"
+  },
+  "homepage": "https://github.com/google-labs-code/stitch-skills",
+  "repository": "https://github.com/google-labs-code/stitch-skills",
+  "license": "Apache-2.0",
+  "keywords": [
+    "stitch",
+    "design",
+    "code-to-design",
+    "design-system",
+    "html-extraction",
+    "mcp",
+    "ui-generation"
+  ]
+}

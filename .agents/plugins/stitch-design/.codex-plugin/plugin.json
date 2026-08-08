@@ -1,0 +1,40 @@
+{
+  "name": "stitch-design",
+  "version": "1.0.0",
+  "description": "Design workflows for Google Stitch: convert code to designs, generate screens, manage design systems, extract HTML, and upload assets.",
+  "author": {
+    "name": "google-labs-code"
+  },
+  "homepage": "https://github.com/google-labs-code/stitch-skills",
+  "repository": "https://github.com/google-labs-code/stitch-skills",
+  "license": "Apache-2.0",
+  "keywords": [
+    "stitch",
+    "design",
+    "code-to-design",
+    "design-system",
+    "html-extraction",
+    "mcp",
+    "ui-generation"
+  ],
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "Stitch Design",
+    "shortDescription": "Design workflows for Google Stitch",
+    "longDescription": "Use Google Stitch design workflows to convert frontend code into Stitch designs, generate and edit screens, manage design systems, extract static HTML, extract DESIGN.md files, and upload local assets to Stitch projects.",
+    "developerName": "google-labs-code",
+    "category": "Design",
+    "capabilities": [
+      "Interactive",
+      "Write"
+    ],
+    "websiteURL": "https://github.com/google-labs-code/stitch-skills",
+    "defaultPrompt": [
+      "Upload this frontend code into a Stitch project",
+      "Generate a mobile app screen in Stitch",
+      "Apply this DESIGN.md to my Stitch screens"
+    ],
+    "brandColor": "#1A73E8",
+    "screenshots": []
+  }
+}
