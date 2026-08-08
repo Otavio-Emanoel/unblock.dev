@@ -28,6 +28,9 @@ export function Header() {
           <Link href="#funcionalidades" className="hover:text-white transition">
             Funcionalidades
           </Link>
+          <Link href="#planos" className="hover:text-white transition">
+            Planos
+          </Link>
           <Link href="#calculadora" className="hover:text-white transition">
             Estimativa de Custos
           </Link>

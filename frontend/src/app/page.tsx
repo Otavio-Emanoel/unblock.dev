@@ -4,6 +4,7 @@ import { Hero } from "@/components/landing/Hero";
 import { RoomPreviewMockup } from "@/components/landing/RoomPreviewMockup";
 import { FeaturesGrid } from "@/components/landing/FeaturesGrid";
 import { HowItWorks } from "@/components/landing/HowItWorks";
+import { PricingPlans } from "@/components/landing/PricingPlans";
 import { CostCalculator } from "@/components/landing/CostCalculator";
 import { CtaSection } from "@/components/landing/CtaSection";
 
@@ -24,6 +25,7 @@ export default function Home() {
 
         <FeaturesGrid />
         <HowItWorks />
+        <PricingPlans />
         <CostCalculator />
         <CtaSection />
       </main>
