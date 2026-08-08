@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Mic, Video, Monitor, PhoneOff, Terminal as TerminalIcon, Code, ShieldCheck } from "lucide-react";
+import { Mic, Video, Monitor, PhoneOff, Terminal as TerminalIcon, Code } from "lucide-react";
 
 export default async function RoomPage({
   params,
@@ -120,7 +120,7 @@ export default async function RoomPage({
             <p>)</p>
             <p></p>
             <p><span className="text-purple-400">func</span> <span className="text-blue-400">main</span>() &#123;</p>
-            <p className="pl-4 text-slate-500">// TODO: Resolver deadlock de goroutines abaixo</p>
+            <p className="pl-4 text-slate-500 font-mono">&#47;&#47; TODO: Resolver deadlock de goroutines abaixo</p>
             <p className="pl-4"><span className="text-purple-400">var</span> wg sync.WaitGroup</p>
             <p className="pl-4">wg.<span className="text-blue-400">Add</span>(<span className="text-orange-400">1</span>)</p>
             <p className="pl-4"><span className="text-purple-400">go</span> <span className="text-purple-400">func</span>() &#123;</p>

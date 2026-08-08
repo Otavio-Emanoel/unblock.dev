@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Zap, Wallet, History, ArrowRight } from "lucide-react";
+import { Zap, Wallet, History } from "lucide-react";
 
 export default function DashboardPage() {
   return (
