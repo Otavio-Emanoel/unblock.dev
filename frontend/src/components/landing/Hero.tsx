@@ -1,10 +1,10 @@
 import Link from "next/link";
-import { Zap, Play, ShieldCheck, Clock, Users, ArrowRight, Code2 } from "lucide-react";
+import { Zap, Play, Clock, Terminal, CheckCircle2 } from "lucide-react";
 
 export function Hero() {
   return (
-    <section className="relative pt-24 pb-16 md:pt-32 md:pb-24 bg-grid-pattern bg-radial-gradient">
-      <div className="max-w-7xl mx-auto px-6 space-y-8 text-center">
+    <section className="relative pt-24 pb-16 md:pt-32 md:pb-24 bg-grid-pattern bg-radial-gradient overflow-hidden">
+      <div className="max-w-7xl mx-auto px-6 space-y-8 text-center relative z-10">
         {/* Animated Badge */}
         <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-xs font-semibold bg-indigo-500/10 text-indigo-400 border border-indigo-500/30 glow-primary backdrop-blur-md animate-pulse-slow">
           <Zap className="w-4 h-4 text-indigo-400 fill-indigo-400/30" />
@@ -43,19 +43,29 @@ export function Hero() {
           </Link>
         </div>
 
-        {/* Live Metrics Pill */}
-        <div className="pt-10 flex flex-wrap items-center justify-center gap-6 md:gap-12 text-slate-400 text-xs sm:text-sm font-medium border-t border-white/10 max-w-4xl mx-auto">
-          <div className="flex items-center gap-2">
-            <Users className="w-4 h-4 text-emerald-400" />
-            <span><strong className="text-white font-mono">34+</strong> Mentores Online Agora</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <Clock className="w-4 h-4 text-indigo-400" />
-            <span><strong className="text-white font-mono">1.8 min</strong> Tempo Médio de Match</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <ShieldCheck className="w-4 h-4 text-purple-400" />
-            <span><strong className="text-white font-mono">98%</strong> Taxa de Resolução de Bugs</span>
+        {/* Hacker CLI Telemetry Status Bar */}
+        <div className="pt-8 max-w-3xl mx-auto">
+          <div className="glass-panel p-3 rounded-2xl border border-white/10 flex flex-wrap items-center justify-between gap-4 font-mono text-xs text-slate-300 shadow-xl">
+            <div className="flex items-center gap-2 text-emerald-400 font-semibold">
+              <Terminal className="w-4 h-4" />
+              <span>&gt; SYSTEM STATUS: READY</span>
+            </div>
+            <div className="flex items-center gap-4 text-[11px] text-slate-400">
+              <span className="flex items-center gap-1.5">
+                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping" />
+                <strong className="text-white">34+</strong> Mentores Online
+              </span>
+              <span>•</span>
+              <span className="flex items-center gap-1.5">
+                <Clock className="w-3.5 h-3.5 text-indigo-400" />
+                <strong className="text-white">&lt; 1.8 min</strong> Match
+              </span>
+              <span>•</span>
+              <span className="flex items-center gap-1.5">
+                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+                <strong className="text-white">98%</strong> Resolução
+              </span>
+            </div>
           </div>
         </div>
       </div>

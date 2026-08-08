@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Play, Mic, Video, Monitor, Terminal, Code, MessageSquare, Sparkles, CheckCircle2 } from "lucide-react";
+import { Mic, Video, Monitor, Terminal, Code, Sparkles, CheckCircle2, Activity } from "lucide-react";
 
 export function RoomPreviewMockup() {
   const [activeTab, setActiveTab] = useState<"editor" | "terminal" | "chat">("editor");
@@ -18,7 +18,7 @@ export function RoomPreviewMockup() {
   }, []);
 
   return (
-    <div className="relative w-full max-w-5xl mx-auto rounded-2xl overflow-hidden border border-indigo-500/30 bg-[#090d16] shadow-2xl shadow-indigo-500/10 glow-primary">
+    <div className="relative w-full max-w-6xl mx-auto rounded-3xl overflow-hidden border border-indigo-500/30 bg-[#090d16] shadow-2xl shadow-indigo-500/10 glow-primary">
       {/* Top Bar Mockup Header */}
       <div className="h-12 px-4 bg-[#0f172a] border-b border-white/10 flex items-center justify-between font-sans">
         <div className="flex items-center gap-3">
@@ -30,13 +30,13 @@ export function RoomPreviewMockup() {
           <span className="text-slate-600">|</span>
           <span className="text-xs text-slate-300 font-mono flex items-center gap-2">
             <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-            Sala ao Vivo #sos-8921 (Pairing Active)
+            Sala de SOS ao Vivo #8492 (Pairing Active)
           </span>
         </div>
 
         {/* Balance Live Ticker Pill */}
-        <div className="glass-pill px-3 py-1 rounded-full border border-emerald-500/30 flex items-center gap-2">
-          <span className="text-[11px] text-slate-400 font-medium">Saldo Restante:</span>
+        <div className="glass-pill px-3.5 py-1 rounded-full border border-emerald-500/30 flex items-center gap-2 shadow-sm">
+          <span className="text-[11px] text-slate-400 font-medium uppercase tracking-wider">Custo Atual:</span>
           <span className="text-xs font-bold text-emerald-400 font-mono">
             R$ {balance.toFixed(2)}
           </span>
@@ -45,12 +45,12 @@ export function RoomPreviewMockup() {
       </div>
 
       {/* Workspace Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-12 min-h-[380px]">
-        {/* Left Video Grid & Speaker Cards (4 cols) */}
-        <div className="md:col-span-4 bg-[#0d1322] border-r border-white/10 p-4 flex flex-col justify-between space-y-4">
+      <div className="grid grid-cols-1 lg:grid-cols-12 min-h-[420px]">
+        {/* Left Column: Video Streams & Quick Controls (3 cols) */}
+        <div className="lg:col-span-3 bg-[#0d1322] border-r border-white/10 p-4 flex flex-col justify-between space-y-4">
           <div className="space-y-3">
             <div className="text-xs font-semibold text-slate-400 uppercase tracking-wider flex items-center justify-between">
-              <span>WebRTC Video Grid</span>
+              <span>Vídeo WebRTC</span>
               <span className="text-[10px] text-indigo-400 font-mono">LiveKit SFU</span>
             </div>
 
@@ -60,19 +60,19 @@ export function RoomPreviewMockup() {
                 <Sparkles className="w-3 h-3" /> MENTOR SENIOR
               </div>
               <div className="flex items-center gap-2">
-                <div className="w-8 h-8 rounded-full bg-indigo-500 text-white flex items-center justify-center font-bold text-xs">
+                <div className="w-8 h-8 rounded-full bg-indigo-500 text-white flex items-center justify-center font-bold text-xs shadow">
                   AS
                 </div>
                 <div>
                   <div className="text-xs font-bold text-white">Alex Santos</div>
-                  <div className="text-[10px] text-emerald-400 font-mono">Especialista em Go & K8s</div>
+                  <div className="text-[10px] text-emerald-400 font-mono">Go &amp; K8s Expert</div>
                 </div>
               </div>
-              <div className="flex items-center justify-between text-[10px] text-slate-400 font-mono bg-black/40 px-2 py-1 rounded">
+              <div className="flex items-center justify-between text-[10px] text-slate-400 font-mono bg-black/50 px-2 py-1 rounded">
                 <span className="text-emerald-400 font-semibold flex items-center gap-1">
                   <CheckCircle2 className="w-3 h-3" /> Falando agora...
                 </span>
-                <span>4k / 60fps</span>
+                <span>HD / 60fps</span>
               </div>
             </div>
 
@@ -104,8 +104,8 @@ export function RoomPreviewMockup() {
           </div>
         </div>
 
-        {/* Right Tabbed Area: Editor / Terminal / Chat (8 cols) */}
-        <div className="md:col-span-8 bg-[#090d16] flex flex-col">
+        {/* Middle Column: Monaco Code Editor (6 cols) */}
+        <div className="lg:col-span-6 bg-[#090d16] flex flex-col border-r border-white/10">
           {/* Tab Navigation */}
           <div className="h-10 px-4 bg-[#0f172a]/60 border-b border-white/10 flex items-center gap-2 text-xs">
             <button
@@ -116,7 +116,7 @@ export function RoomPreviewMockup() {
                   : "text-slate-400 hover:text-white"
               }`}
             >
-              <Code className="w-3.5 h-3.5" /> Monaco Editor (CRDT Yjs)
+              <Code className="w-3.5 h-3.5" /> main.go (Yjs CRDT)
             </button>
 
             <button
@@ -136,14 +136,14 @@ export function RoomPreviewMockup() {
             {activeTab === "editor" && (
               <div className="space-y-1">
                 <div className="flex items-center justify-between text-[11px] text-slate-500 mb-3 font-sans border-b border-white/5 pb-2">
-                  <span>main.go</span>
-                  <span className="text-indigo-400 font-mono">Sincronização em Tempo Real (0 Conflitos)</span>
+                  <span>package main</span>
+                  <span className="text-indigo-400 font-mono">CRDT Status: Synced</span>
                 </div>
                 <p><span className="text-purple-400">package</span> main</p>
                 <p></p>
                 <p><span className="text-purple-400">func</span> <span className="text-blue-400">SolveRedisLock</span>(ctx context.Context, key string) <span className="text-purple-400">error</span> &#123;</p>
                 <p className="pl-4 relative">
-                  <span className="text-slate-500">// Fix aplicado pelo Mentor ao vivo:</span>
+                  <span className="text-slate-500">&#47;&#47; Fix aplicado pelo Mentor ao vivo:</span>
                 </p>
                 <p className="pl-4 bg-indigo-500/10 border-l-2 border-indigo-500 py-1 my-1 rounded-r">
                   ok, err := redisClient.<span className="text-blue-400">SetNX</span>(ctx, key, <span className="text-emerald-400">&quot;locked&quot;</span>, ttl).<span className="text-blue-400">Result</span>()
@@ -169,6 +169,39 @@ export function RoomPreviewMockup() {
                 <p className="text-slate-500">ok  unblock.dev/backend/internal/service  0.042s</p>
               </div>
             )}
+          </div>
+        </div>
+
+        {/* Right Column: Real-Time Telemetry Logs Stream (3 cols - from reference index.png & index4.png) */}
+        <div className="lg:col-span-3 bg-[#0d1322] p-4 flex flex-col justify-between font-mono text-[11px]">
+          <div className="space-y-3">
+            <div className="text-xs font-semibold text-slate-400 uppercase tracking-wider flex items-center justify-between border-b border-white/10 pb-2">
+              <span className="flex items-center gap-1.5 text-emerald-400">
+                <Activity className="w-3.5 h-3.5" /> Telemetria Logs
+              </span>
+              <span className="text-[10px] text-slate-500 font-normal">WS API Go</span>
+            </div>
+
+            <div className="space-y-2 text-slate-300 overflow-y-auto max-h-[300px]">
+              <p className="text-emerald-400">[SYS] Connection established</p>
+              <p className="text-slate-400">[WEBRTC] Video streams active</p>
+              <p className="text-indigo-300">[YJS] CRDT Document synced</p>
+              <p className="text-slate-300">[MATCH] Mentor &apos;Alex S.&apos; joined</p>
+              <p className="text-slate-400">[SYS] Billing clock started</p>
+              <p className="text-indigo-400">[EDITOR] Cursor sync enabled</p>
+              <p className="text-emerald-400">[YJS] Applied 42 remote ops</p>
+            </div>
+          </div>
+
+          <div className="pt-3 border-t border-white/10 space-y-1 text-[10px] text-slate-500">
+            <div className="flex justify-between">
+              <span>Taxa:</span>
+              <span className="text-white font-bold">R$ 2,50/min</span>
+            </div>
+            <div className="flex justify-between">
+              <span>Engine:</span>
+              <span className="text-emerald-400">TickerEngine Go</span>
+            </div>
           </div>
         </div>
       </div>

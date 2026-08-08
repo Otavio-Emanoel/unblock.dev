@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Calculator, Clock, DollarSign, Zap, CheckCircle2, TrendingDown } from "lucide-react";
+import { Calculator, DollarSign, TrendingDown } from "lucide-react";
 
 const STACKS = [
   { name: "Go & Microserviços", rate: 2.80, avgMin: 15 },
@@ -17,16 +17,16 @@ export function CostCalculator() {
 
   const currentStack = STACKS[selectedStackIndex];
   const totalCost = (currentStack.rate * minutes).toFixed(2);
-  const hoursSaved = (minutes * 0.25).toFixed(1); // Estimativa de 3-4 horas economizadas
+  const hoursSaved = (minutes * 0.25).toFixed(1);
 
   return (
     <section id="calculadora" className="py-20 relative bg-radial-gradient">
-      <div className="max-w-4xl mx-auto px-6 space-y-10">
+      <div className="max-w-5xl mx-auto px-6 space-y-10">
         <div className="text-center space-y-3">
-          <div className="inline-flex items-center gap-2 px-3 me py-1 rounded-full text-xs font-mono bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-mono bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">
             <Calculator className="w-3.5 h-3.5" /> Faturamento Transparente por Minuto
           </div>
-          <h2 className="text-3xl md:text-4xl font-extrabold text-white">
+          <h2 className="text-3xl md:text-5xl font-extrabold text-white">
             Quanto custa desbloquear seu código?
           </h2>
           <p className="text-slate-400 max-w-xl mx-auto text-sm md:text-base">
@@ -34,10 +34,10 @@ export function CostCalculator() {
           </p>
         </div>
 
-        <div className="glass-panel p-8 rounded-3xl border border-white/10 space-y-8 shadow-2xl">
+        <div className="glass-panel p-8 md:p-10 rounded-3xl border border-white/10 space-y-8 shadow-2xl">
           {/* Stack Selection Pills */}
           <div className="space-y-3">
-            <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider">
+            <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider font-mono">
               1. Selecione a Stack / Especialidade Técnica
             </label>
             <div className="flex flex-wrap gap-2">
@@ -63,7 +63,7 @@ export function CostCalculator() {
 
           {/* Minutes Slider */}
           <div className="space-y-4">
-            <div className="flex items-center justify-between text-xs font-semibold text-slate-400 uppercase tracking-wider">
+            <div className="flex items-center justify-between text-xs font-semibold text-slate-400 uppercase tracking-wider font-mono">
               <span>2. Estimativa de Duração da Sessão</span>
               <span className="text-indigo-400 font-mono text-base font-bold">
                 {minutes} minutos
@@ -85,11 +85,16 @@ export function CostCalculator() {
             </div>
           </div>
 
-          {/* Calculated Output Card */}
+          {/* Calculated Output Cards */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-6 border-t border-white/10">
             <div className="glass-card p-6 rounded-2xl border border-emerald-500/30 space-y-2 bg-emerald-500/5">
-              <div className="flex items-center gap-2 text-xs font-bold text-emerald-400 uppercase tracking-wider">
-                <DollarSign className="w-4 h-4" /> Custo Total da Sessão
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2 text-xs font-bold text-emerald-400 uppercase tracking-wider font-mono">
+                  <DollarSign className="w-4 h-4" /> Custo Total Estimado
+                </div>
+                <span className="text-[10px] font-mono text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20">
+                  Débito por segundo
+                </span>
               </div>
               <div className="text-4xl font-extrabold text-white font-mono">
                 R$ {totalCost}
@@ -100,8 +105,13 @@ export function CostCalculator() {
             </div>
 
             <div className="glass-card p-6 rounded-2xl border border-indigo-500/30 space-y-2 bg-indigo-500/5">
-              <div className="flex items-center gap-2 text-xs font-bold text-indigo-400 uppercase tracking-wider">
-                <TrendingDown className="w-4 h-4" /> Economia de Tempo Estimada
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2 text-xs font-bold text-indigo-400 uppercase tracking-wider font-mono">
+                  <TrendingDown className="w-4 h-4" /> Economia de Tempo
+                </div>
+                <span className="text-[10px] font-mono text-indigo-300 bg-indigo-500/10 px-2 py-0.5 rounded border border-indigo-500/20">
+                  Produtividade
+                </span>
               </div>
               <div className="text-4xl font-extrabold text-indigo-300 font-mono">
                 ~{hoursSaved} horas

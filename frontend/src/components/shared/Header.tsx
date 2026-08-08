@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { Zap, Code2, ShieldCheck, User } from "lucide-react";
+import { Zap, ShieldCheck } from "lucide-react";
 
 export function Header() {
   return (
