@@ -48,29 +48,26 @@ export function Footer() {
             </ul>
           </div>
 
-          {/* Col 3: Tecnologias / Stack */}
+          {/* Col 3: Desenvolvido por */}
           <div className="space-y-3">
-            <h4 className="text-sm font-semibold text-white">Engine Tecnológica</h4>
-            <div className="flex flex-wrap gap-1.5 text-[11px] font-mono">
-              <span className="px-2 py-1 rounded bg-white/5 border border-white/10 text-slate-300">
-                Next.js 15
-              </span>
-              <span className="px-2 py-1 rounded bg-white/5 border border-white/10 text-slate-300">
-                Go 1.22
-              </span>
-              <span className="px-2 py-1 rounded bg-white/5 border border-white/10 text-slate-300">
-                LiveKit SFU
-              </span>
-              <span className="px-2 py-1 rounded bg-white/5 border border-white/10 text-slate-300">
-                Monaco + Yjs
-              </span>
-              <span className="px-2 py-1 rounded bg-white/5 border border-white/10 text-slate-300">
-                Redis Pub/Sub
-              </span>
-              <span className="px-2 py-1 rounded bg-white/5 border border-white/10 text-slate-300">
-                MongoDB 7
-              </span>
-            </div>
+            <h4 className="text-sm font-semibold text-white">Desenvolvido por</h4>
+            <ul className="space-y-2 text-xs">
+              <li>
+                <Link href="https://github.com/Otavio-Emanoel" className="hover:text-white transition">
+                  Otavio Emanoel
+                </Link>
+              </li>
+              <li>
+                <Link href="https://github.com/RaulGaldino" className="hover:text-white transition">
+                  Raul Galdino
+                </Link>
+              </li>
+              <li>
+                <Link href="https://github.com/PedroAugusto0" className="hover:text-white transition">
+                  Pedro Augusto
+                </Link>
+              </li>
+            </ul>
           </div>
 
           {/* Col 4: Suporte e Contato */}
@@ -78,7 +75,7 @@ export function Footer() {
             <h4 className="text-sm font-semibold text-white">Comunidade</h4>
             <div className="flex items-center gap-3">
               <a
-                href="https://github.com"
+                href="https://github.com/Otavio-Emanoel"
                 target="_blank"
                 rel="noreferrer"
                 aria-label="GitHub"

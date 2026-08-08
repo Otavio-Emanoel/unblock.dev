@@ -1,11 +1,29 @@
 "use client";
 
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { Zap, ShieldCheck } from "lucide-react";
 
 export function Header() {
+  const [scrolled, setScrolled] = useState(false);
+
+  useEffect(() => {
+    const handleScroll = () => {
+      setScrolled(window.scrollY > 20);
+    };
+
+    window.addEventListener("scroll", handleScroll);
+    return () => window.removeEventListener("scroll", handleScroll);
+  }, []);
+
   return (
-    <header className="sticky top-0 z-50 w-full border-b border-white/10 glass-panel">
+    <header
+      className={`fixed top-0 z-50 w-full transition-all duration-300 ${
+        scrolled
+          ? "bg-[#090d16]/80 backdrop-blur-md border-b border-white/10 shadow-2xl py-0"
+          : "bg-transparent border-b border-transparent py-1"
+      }`}
+    >
       <div className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
         {/* Brand Logo */}
         <Link href="/" className="flex items-center gap-2.5 group">
@@ -14,9 +32,6 @@ export function Header() {
           </div>
           <span className="font-bold text-xl tracking-tight text-white">
             Unblock<span className="text-indigo-400">.dev</span>
-          </span>
-          <span className="px-2 py-0.5 text-[10px] font-mono uppercase tracking-wider rounded-md bg-[#ff4757]/10 text-[#ff4757] border border-[#ff4757]/30 font-semibold">
-            SOS Live
           </span>
         </Link>
 
