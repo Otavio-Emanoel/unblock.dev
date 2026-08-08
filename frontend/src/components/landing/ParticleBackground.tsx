@@ -30,7 +30,7 @@ export function ParticleBackground() {
     const mouse = {
       x: -1000,
       y: -1000,
-      radius: 160,
+      radius: 180,
     };
 
     const handleMouseMove = (e: MouseEvent) => {
@@ -62,20 +62,21 @@ export function ParticleBackground() {
       "rgba(168, 85, 247, ",  // Purple Glow
     ];
 
-    const particleCount = Math.min(Math.floor((width * height) / 12000), 75);
+    // High density particles count
+    const particleCount = Math.min(Math.floor((width * height) / 4500), 160);
     const particles: Particle[] = [];
 
     for (let i = 0; i < particleCount; i++) {
-      const baseAlpha = Math.random() * 0.4 + 0.2;
+      const baseAlpha = Math.random() * 0.45 + 0.25;
       particles.push({
         x: Math.random() * width,
         y: Math.random() * height,
-        vx: (Math.random() - 0.5) * 0.6,
-        vy: (Math.random() - 0.5) * 0.6,
-        size: Math.random() * 2 + 1.2,
+        vx: (Math.random() - 0.5) * 0.7,
+        vy: (Math.random() - 0.5) * 0.7,
+        size: Math.random() * 2.2 + 1.2,
         color: colors[Math.floor(Math.random() * colors.length)],
         alpha: baseAlpha,
- baseAlpha,
+        baseAlpha,
       });
     }
 
@@ -93,28 +94,28 @@ export function ParticleBackground() {
         if (p.x < 0 || p.x > width) p.vx *= -1;
         if (p.y < 0 || p.y > height) p.vy *= -1;
 
-        // Draw particle dot
+        // Draw particle dot with subtle glow
         ctx.beginPath();
         ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
         ctx.fillStyle = `${p.color}${p.alpha})`;
-        ctx.shadowBlur = p.size > 2 ? 10 : 0;
+        ctx.shadowBlur = p.size > 2 ? 12 : 0;
         ctx.shadowColor = `${p.color}0.8)`;
         ctx.fill();
 
-        // Connect nearby particles (Constellation Network)
+        // Connect nearby particles (Dense Constellation Network)
         for (let j = i + 1; j < particles.length; j++) {
           const p2 = particles[j];
           const dx = p.x - p2.x;
           const dy = p.y - p2.y;
           const dist = Math.sqrt(dx * dx + dy * dy);
 
-          if (dist < 120) {
-            const lineAlpha = (1 - dist / 120) * 0.15;
+          if (dist < 135) {
+            const lineAlpha = (1 - dist / 135) * 0.2;
             ctx.beginPath();
             ctx.moveTo(p.x, p.y);
             ctx.lineTo(p2.x, p2.y);
             ctx.strokeStyle = `rgba(99, 102, 241, ${lineAlpha})`;
-            ctx.lineWidth = 0.8;
+            ctx.lineWidth = 0.85;
             ctx.stroke();
           }
         }
@@ -125,12 +126,12 @@ export function ParticleBackground() {
         const mdist = Math.sqrt(mdx * mdx + mdy * mdy);
 
         if (mdist < mouse.radius) {
-          const mAlpha = (1 - mdist / mouse.radius) * 0.35;
+          const mAlpha = (1 - mdist / mouse.radius) * 0.4;
           ctx.beginPath();
           ctx.moveTo(p.x, p.y);
           ctx.lineTo(mouse.x, mouse.y);
           ctx.strokeStyle = `${p.color}${mAlpha})`;
-          ctx.lineWidth = 1;
+          ctx.lineWidth = 1.1;
           ctx.stroke();
         }
       }
@@ -151,7 +152,7 @@ export function ParticleBackground() {
   return (
     <canvas
       ref={canvasRef}
-      className="pointer-events-none fixed inset-0 z-0 opacity-70"
+      className="pointer-events-none fixed inset-0 z-0 opacity-80"
     />
   );
 }
