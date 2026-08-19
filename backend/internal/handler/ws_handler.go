@@ -36,6 +36,8 @@ type WSIncomingMessage struct {
 	Type      string      `json:"type"`
 	SessionID string      `json:"session_id,omitempty"`
 	RoomID    string      `json:"room_id,omitempty"`
+	FileID    string      `json:"file_id,omitempty"`
+	File      interface{} `json:"file,omitempty"`
 	Code      string      `json:"code,omitempty"`
 	SenderID  string      `json:"sender_id,omitempty"`
 	Payload   interface{} `json:"payload,omitempty"`
@@ -165,12 +167,20 @@ func (h *WSHub) sendToUser(userID string, message []byte) {
 	}
 }
 
-func (h *WSHub) broadcastToSession(sessionID string, sender *WSClient, message []byte) {
+func (h *WSHub) broadcastToSession(roomID, sessionID string, sender *WSClient, message []byte) {
 	h.mu.RLock()
 	defer h.mu.RUnlock()
 
 	for client := range h.clients {
-		if client != sender && (client.RoomID == sessionID || client.RoomID == "" || sessionID == "") {
+		if client == sender {
+			continue
+		}
+		// Match client if they are in the target room, session, or global
+		isMatch := (roomID != "" && client.RoomID == roomID) ||
+			(sessionID != "" && client.RoomID == sessionID) ||
+			(roomID == "" && sessionID == "") ||
+			(client.RoomID == "")
+		if isMatch {
 			select {
 			case client.Send <- message:
 			default:
@@ -244,11 +254,12 @@ func (c *WSClient) readPump() {
 				c.RoomID = incoming.SessionID
 			}
 
-			// Broadcast code changes or room events to room participants
-			if incoming.Type == "CODE_CHANGE" || incoming.Type == "JOIN_ROOM" || incoming.Type == "SESSION_ENDED" {
+			// Broadcast room events directly to session participants
+			switch incoming.Type {
+			case "CODE_CHANGE", "JOIN_ROOM", "SESSION_ENDED", "FILE_CREATE", "FILE_DELETE", "CHAT_MESSAGE":
 				incoming.SenderID = c.UserID
 				outBytes, _ := json.Marshal(incoming)
-				c.Hub.broadcastToSession(c.RoomID, c, outBytes)
+				c.Hub.broadcastToSession(c.RoomID, incoming.SessionID, c, outBytes)
 				continue
 			}
 		}

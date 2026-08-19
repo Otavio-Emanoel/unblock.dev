@@ -142,6 +142,7 @@ export default function RoomPage({
   const localVideoRef = useRef<HTMLVideoElement | null>(null);
   const remoteVideoRef = useRef<HTMLVideoElement | null>(null);
   const livekitRoomRef = useRef<Room | null>(null);
+  const connectedTokenRef = useRef<string | null>(null);
   const isLocalEditRef = useRef(false);
   const autoSaveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -200,78 +201,76 @@ export default function RoomPage({
     return () => clearInterval(timer);
   }, []);
 
-  // 3. Connect LiveKit WebRTC (Default: Receive Only, Muted & Camera Off)
+  // 3. Connect LiveKit WebRTC (Persistent, Connect Once per Token)
   useEffect(() => {
     if (!session?.livekit_token) return;
+    if (connectedTokenRef.current === session.livekit_token) return;
+    connectedTokenRef.current = session.livekit_token;
 
-    let room: Room | null = null;
+    const room = new Room({
+      adaptiveStream: true,
+      dynacast: true,
+    });
+    livekitRoomRef.current = room;
 
-    const connectLiveKit = async () => {
-      try {
-        room = new Room({
-          adaptiveStream: true,
-          dynacast: true,
-        });
+    // When remote participant publishes a track
+    room.on(RoomEvent.TrackSubscribed, (track, publication, participant) => {
+      setRemoteParticipantConnected(true);
+      setRemoteParticipantName(participant.name || participant.identity);
 
-        livekitRoomRef.current = room;
-
-        // When remote participant publishes a track
-        room.on(RoomEvent.TrackSubscribed, (track, publication, participant) => {
-          setRemoteParticipantConnected(true);
-          setRemoteParticipantName(participant.name || participant.identity);
-
-          if (track.kind === Track.Kind.Video) {
-            setRemoteHasVideo(true);
-            if (remoteVideoRef.current) {
-              track.attach(remoteVideoRef.current);
-            }
-          }
-          if (track.kind === Track.Kind.Audio) {
-            setRemoteHasAudio(true);
-            const audioElement = track.attach();
-            audioElement.id = `remote-audio-${participant.identity}`;
-            document.body.appendChild(audioElement);
-          }
-        });
-
-        room.on(RoomEvent.TrackUnsubscribed, (track) => {
-          if (track.kind === Track.Kind.Video) {
-            setRemoteHasVideo(false);
-          }
-          if (track.kind === Track.Kind.Audio) {
-            setRemoteHasAudio(false);
-          }
-          track.detach();
-        });
-
-        // Participant Joined
-        room.on(RoomEvent.ParticipantConnected, (participant) => {
-          setRemoteParticipantConnected(true);
-          setRemoteParticipantName(participant.name || participant.identity);
-        });
-
-        // Participant Disconnected
-        room.on(RoomEvent.ParticipantDisconnected, (participant) => {
-          setRemoteParticipantConnected(false);
-          setRemoteHasVideo(false);
-          setRemoteHasAudio(false);
-        });
-
-        const livekitUrl = session.livekit_url || "ws://localhost:7880";
-        await room.connect(livekitUrl, session.livekit_token);
-      } catch (e) {
-        console.error("LiveKit connection error", e);
+      if (track.kind === Track.Kind.Video) {
+        setRemoteHasVideo(true);
+        if (remoteVideoRef.current) {
+          track.attach(remoteVideoRef.current);
+        }
       }
-    };
+      if (track.kind === Track.Kind.Audio) {
+        setRemoteHasAudio(true);
+        const audioElement = track.attach();
+        audioElement.id = `remote-audio-${participant.identity}`;
+        document.body.appendChild(audioElement);
+      }
+    });
 
-    connectLiveKit();
+    room.on(RoomEvent.TrackUnsubscribed, (track) => {
+      if (track.kind === Track.Kind.Video) {
+        setRemoteHasVideo(false);
+      }
+      if (track.kind === Track.Kind.Audio) {
+        setRemoteHasAudio(false);
+      }
+      track.detach();
+    });
 
+    // Participant Joined
+    room.on(RoomEvent.ParticipantConnected, (participant) => {
+      setRemoteParticipantConnected(true);
+      setRemoteParticipantName(participant.name || participant.identity);
+    });
+
+    // Participant Disconnected
+    room.on(RoomEvent.ParticipantDisconnected, (participant) => {
+      setRemoteParticipantConnected(false);
+      setRemoteHasVideo(false);
+      setRemoteHasAudio(false);
+    });
+
+    const livekitUrl = session.livekit_url || "ws://localhost:7880";
+    room.connect(livekitUrl, session.livekit_token).catch((e) => {
+      console.error("LiveKit connection error", e);
+    });
+  }, [session?.livekit_token, session?.livekit_url]);
+
+  // Cleanup LiveKit ONLY on page unmount
+  useEffect(() => {
     return () => {
-      if (room) {
-        room.disconnect();
+      if (livekitRoomRef.current) {
+        livekitRoomRef.current.disconnect();
+        livekitRoomRef.current = null;
+        connectedTokenRef.current = null;
       }
     };
-  }, [session]);
+  }, []);
 
   // 4. Save Code to Backend (Auto-save & Manual)
   const triggerSave = useCallback(
@@ -280,8 +279,10 @@ export default function RoomPage({
       setSaveStatus("saving");
       try {
         const payload = JSON.stringify(toSave);
-        const targetId = session?.id || id;
-        await api.sessions.saveCode(targetId, payload);
+        if (session?.id && session.id !== id) {
+          await api.sessions.saveCode(session.id, payload).catch(() => {});
+        }
+        await api.sessions.saveCode(id, payload);
         setSaveStatus("saved");
         setLastSavedTime(
           new Date().toLocaleTimeString([], {
@@ -295,7 +296,7 @@ export default function RoomPage({
         setSaveStatus("unsaved");
       }
     },
-    [id, session]
+    [id, session?.id]
   );
 
   // 5. Real-time WebSocket Multi-File & Chat Synchronization
