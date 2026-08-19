@@ -7,39 +7,44 @@ import {
   Zap,
   Wallet,
   History,
-  Star,
   Terminal,
   ShieldCheck,
   Plus,
   Radio,
   ExternalLink,
+  Code2,
+  AlertCircle,
 } from "lucide-react";
 import { DashboardHeader } from "@/components/shared/DashboardHeader";
 import { api } from "@/lib/api";
 import { useAuthStore } from "@/stores/use-auth-store";
+import { useWebSocket } from "@/hooks/use-websocket";
 
 export default function UnifiedDashboardPage() {
   const router = useRouter();
   const user = useAuthStore((s) => s.user);
+  const isMentor = user?.role?.toLowerCase() === "mentor";
 
-  const [role, setRole] = useState<"dev" | "mentor">(user?.role === "mentor" ? "mentor" : "dev");
   const [isOnline, setIsOnline] = useState(true);
   const [balanceCents, setBalanceCents] = useState<number>(user?.wallet?.balance_cents || 0);
   const [myTickets, setMyTickets] = useState<any[]>([]);
   const [openQueue, setOpenQueue] = useState<any[]>([]);
   const [acceptingId, setAcceptingId] = useState<string | null>(null);
+  const [notification, setNotification] = useState<string | null>(null);
+
+  const { subscribe } = useWebSocket();
 
   const loadData = async () => {
     try {
       const bal = await api.wallet.getBalance();
       setBalanceCents(bal.balance_cents);
 
-      if (role === "dev") {
-        const reqs = await api.requests.listMy();
-        setMyTickets(reqs || []);
-      } else {
+      if (isMentor) {
         const queue = await api.requests.listOpen();
         setOpenQueue(queue || []);
+      } else {
+        const reqs = await api.requests.listMy();
+        setMyTickets(reqs || []);
       }
     } catch (err) {
       console.error("Error loading dashboard data", err);
@@ -48,7 +53,43 @@ export default function UnifiedDashboardPage() {
 
   useEffect(() => {
     loadData();
-  }, [role]);
+  }, [isMentor]);
+
+  // Real-time WebSocket Listeners for Queue & Accepted Requests
+  useEffect(() => {
+    // 1. New SOS Request created by client -> add to mentor's live queue
+    const unsubCreated = subscribe("REQUEST_CREATED", (msg) => {
+      if (isMentor && msg.request) {
+        setOpenQueue((prev) => {
+          const exists = prev.some((r) => r.id === msg.request.id);
+          if (exists) return prev;
+          return [msg.request, ...prev];
+        });
+        setNotification(`🚨 Novo chamado SOS na fila: "${msg.request.title}"`);
+        setTimeout(() => setNotification(null), 5000);
+      }
+    });
+
+    // 2. SOS Request accepted by mentor -> remove from queue & notify client
+    const unsubAccepted = subscribe("REQUEST_ACCEPTED", (msg) => {
+      if (isMentor && msg.request_id) {
+        setOpenQueue((prev) => prev.filter((r) => r.id !== msg.request_id));
+      }
+
+      // If current user is the client whose ticket was accepted:
+      if (!isMentor && user?.id && msg.client_id === user.id && msg.session_id) {
+        setNotification(`🎉 O mentor ${msg.mentor_name || "especialista"} aceitou seu chamado! Redirecionando para a sala...`);
+        setTimeout(() => {
+          router.push(`/room/${msg.session_id}`);
+        }, 1500);
+      }
+    });
+
+    return () => {
+      unsubCreated();
+      unsubAccepted();
+    };
+  }, [subscribe, isMentor, user?.id, router]);
 
   const handleAcceptRequest = async (requestId: string) => {
     setAcceptingId(requestId);
@@ -67,21 +108,27 @@ export default function UnifiedDashboardPage() {
 
   return (
     <div className="min-h-screen bg-[#090d16] text-white flex flex-col">
-      {/* Dedicated App Dashboard Header */}
-      <DashboardHeader role={role} setRole={setRole} balance={parseFloat(balanceBrl)} />
+      <DashboardHeader balance={parseFloat(balanceBrl)} />
 
-      {/* Main Workspace Body */}
+      {/* Real-time Notification Banner */}
+      {notification && (
+        <div className="bg-gradient-to-r from-indigo-600 via-emerald-600 to-indigo-600 text-white text-xs font-bold py-2.5 px-6 text-center animate-pulse shadow-lg flex items-center justify-center gap-2">
+          <Zap className="w-4 h-4 fill-white" />
+          <span>{notification}</span>
+        </div>
+      )}
+
       <main className="flex-1 max-w-7xl w-full mx-auto p-6 md:p-8 space-y-8">
         {/* ========================================================= */}
-        {/* DEVELOPER DASHBOARD VIEW                                   */}
+        {/* DEVELOPER DASHBOARD VIEW (Strict Client Role)             */}
         {/* ========================================================= */}
-        {role === "dev" && (
+        {!isMentor && (
           <div className="space-y-8 animate-fade-in">
             {/* Top Greeting & Primary SOS Action Banner */}
             <div className="glass-panel p-8 rounded-3xl border border-indigo-500/30 glow-primary flex flex-col md:flex-row md:items-center justify-between gap-6 relative overflow-hidden bg-gradient-to-r from-indigo-950/40 via-[#0f172a] to-[#090d16]">
               <div className="space-y-2">
                 <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-mono bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">
-                  <Zap className="w-3.5 h-3.5 fill-current" /> Painel do Desenvolvedor
+                  <Code2 className="w-3.5 h-3.5" /> Painel do Desenvolvedor
                 </div>
                 <h1 className="text-2xl md:text-4xl font-extrabold text-white">
                   Boas-vindas, {user?.name || "Dev"}! 👋
@@ -94,7 +141,7 @@ export default function UnifiedDashboardPage() {
               <div className="flex flex-col sm:flex-row gap-3">
                 <Link
                   href="/request"
-                  className="px-6 py-3.5 bg-[#ff4757] hover:bg-[#ff4757]/90 text-white font-bold rounded-2xl glow-sos text-sm transition flex items-center justify-center gap-2 shadow-xl"
+                  className="px-6 py-3.5 bg-[#ff4757] hover:bg-[#ff4757]/90 text-white font-bold rounded-2xl glow-sos text-sm transition flex items-center justify-center gap-2 shadow-xl cursor-pointer"
                 >
                   <Zap className="w-5 h-5 fill-white/20" />
                   Pedir SOS Bug-Fix Agora
@@ -134,7 +181,7 @@ export default function UnifiedDashboardPage() {
               <div className="glass-card p-6 rounded-3xl border border-white/10 space-y-3">
                 <div className="flex items-center justify-between">
                   <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider font-mono">
-                    Atendimentos Criados
+                    Meus Chamados
                   </span>
                   <div className="w-9 h-9 rounded-xl bg-indigo-500/20 text-indigo-400 flex items-center justify-center">
                     <History className="w-5 h-5" />
@@ -142,7 +189,7 @@ export default function UnifiedDashboardPage() {
                 </div>
                 <div className="space-y-1">
                   <div className="text-3xl font-extrabold text-white font-mono">
-                    {myTickets.length} Sessões
+                    {myTickets.length} Atendimentos
                   </div>
                   <p className="text-xs text-slate-400 font-mono">Histórico completo mantido</p>
                 </div>
@@ -159,13 +206,13 @@ export default function UnifiedDashboardPage() {
                   </div>
                 </div>
                 <div className="space-y-1">
-                  <div className="text-3xl font-extrabold text-white font-mono">34 Online</div>
-                  <p className="text-xs text-slate-400 font-mono">Tempo médio de match: &lt; 90s</p>
+                  <div className="text-3xl font-extrabold text-white font-mono">Disponíveis</div>
+                  <p className="text-xs text-slate-400 font-mono">Tempo médio de match: &lt; 60s</p>
                 </div>
               </div>
             </div>
 
-            {/* Recent Tickets Table Section */}
+            {/* My Tickets Section */}
             <div className="glass-panel p-6 md:p-8 rounded-3xl border border-white/10 space-y-6">
               <div className="flex items-center justify-between border-b border-white/10 pb-4">
                 <div className="space-y-1">
@@ -174,7 +221,7 @@ export default function UnifiedDashboardPage() {
                     Seus Chamados SOS
                   </h3>
                   <p className="text-xs text-slate-400">
-                    Consulte os pedidos criados e acesse as salas de atendimento.
+                    Consulte os chamados que você abriu e o status de atendimento.
                   </p>
                 </div>
                 <Link
@@ -188,7 +235,18 @@ export default function UnifiedDashboardPage() {
 
               <div className="space-y-4 font-mono text-xs">
                 {myTickets.length === 0 ? (
-                  <p className="text-slate-500 py-4">Nenhum chamado aberto ainda.</p>
+                  <div className="text-center py-12 space-y-3">
+                    <div className="w-12 h-12 rounded-2xl bg-indigo-600/20 border border-indigo-500/30 text-indigo-400 flex items-center justify-center mx-auto">
+                      <Zap className="w-6 h-6" />
+                    </div>
+                    <p className="text-slate-400 font-medium">Você ainda não tem nenhum chamado SOS aberto.</p>
+                    <Link
+                      href="/request"
+                      className="inline-flex items-center gap-2 px-5 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl font-bold font-sans transition shadow-md text-xs"
+                    >
+                      Criar Primeiro Chamado SOS
+                    </Link>
+                  </div>
                 ) : (
                   myTickets.map((ticket) => (
                     <div
@@ -198,10 +256,14 @@ export default function UnifiedDashboardPage() {
                       <div className="space-y-2">
                         <div className="flex flex-wrap items-center gap-2">
                           <span className="text-[11px] font-mono font-bold text-indigo-400 bg-indigo-500/10 px-2 py-0.5 rounded border border-indigo-500/20">
-                            #{ticket.id}
+                            #{ticket.id.substring(0, 8)}
                           </span>
-                          <span className="text-[10px] uppercase font-bold text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded">
-                            {ticket.status}
+                          <span className={`text-[10px] uppercase font-bold px-2 py-0.5 rounded ${
+                            ticket.status === "OPEN"
+                              ? "text-amber-400 bg-amber-500/10 border border-amber-500/20 animate-pulse"
+                              : "text-emerald-400 bg-emerald-500/10 border border-emerald-500/20"
+                          }`}>
+                            {ticket.status === "OPEN" ? "Aguardando Mentor" : ticket.status}
                           </span>
                           {ticket.stack?.map((s: string) => (
                             <span
@@ -226,13 +288,19 @@ export default function UnifiedDashboardPage() {
                           </div>
                         </div>
 
-                        <Link
-                          href={`/room/${ticket.id}`}
-                          className="px-4 py-2 bg-white/5 hover:bg-white/10 text-slate-200 border border-white/10 rounded-xl text-xs font-semibold transition flex items-center gap-1.5"
-                        >
-                          <ExternalLink className="w-3.5 h-3.5 text-indigo-400" />
-                          Ver Sala
-                        </Link>
+                        {ticket.status === "ACCEPTED" ? (
+                          <Link
+                            href={`/room/${ticket.id}`}
+                            className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold transition flex items-center gap-1.5 shadow-md"
+                          >
+                            <ExternalLink className="w-3.5 h-3.5" />
+                            Entrar na Sala
+                          </Link>
+                        ) : (
+                          <span className="text-xs text-amber-400/80 font-mono italic">
+                            Na fila ao vivo...
+                          </span>
+                        )}
                       </div>
                     </div>
                   ))
@@ -243,9 +311,9 @@ export default function UnifiedDashboardPage() {
         )}
 
         {/* ========================================================= */}
-        {/* MENTOR DASHBOARD VIEW                                     */}
+        {/* MENTOR DASHBOARD VIEW (Strict Mentor Role)                */}
         {/* ========================================================= */}
-        {role === "mentor" && (
+        {isMentor && (
           <div className="space-y-8 animate-fade-in">
             {/* Mentor Status Banner & Queue Controls */}
             <div className="glass-panel p-8 rounded-3xl border border-emerald-500/30 glow-success flex flex-col md:flex-row md:items-center justify-between gap-6 relative overflow-hidden bg-gradient-to-r from-emerald-950/30 via-[#0f172a] to-[#090d16]">
@@ -254,10 +322,10 @@ export default function UnifiedDashboardPage() {
                   <ShieldCheck className="w-3.5 h-3.5" /> Painel de Mentoria ao Vivo
                 </div>
                 <h1 className="text-2xl md:text-4xl font-extrabold text-white">
-                  Fila de Chamados SOS
+                  Fila de Chamados SOS em Tempo Real
                 </h1>
                 <p className="text-slate-300 text-sm max-w-xl">
-                  Você está qualificado como Mentor Senior. Aceite chamados da fila e receba por minuto durante as sessões de pair programming.
+                  Você está autenticado como <strong>Mentor Especialista</strong>. Novos chamados chegam automaticamente via WebSocket.
                 </p>
               </div>
 
@@ -287,19 +355,23 @@ export default function UnifiedDashboardPage() {
                 <div className="space-y-1">
                   <h3 className="text-lg font-bold text-white flex items-center gap-2">
                     <Radio className="w-5 h-5 text-emerald-400 animate-pulse" />
-                    Chamados Abertos na Fila em Tempo Real ({openQueue.length})
+                    Fila de Chamados Abertos ({openQueue.length})
                   </h3>
                   <p className="text-xs text-slate-400">
-                    Clique em Aceitar para iniciar a sala colaborativa com trava Redis.
+                    Clique em Aceitar para adquirir a trava distribuída no Redis e entrar na sala ao vivo.
                   </p>
                 </div>
               </div>
 
               <div className="space-y-4">
                 {openQueue.length === 0 ? (
-                  <p className="text-slate-500 py-4 font-mono text-xs">
-                    Nenhum chamado aberto na fila no momento.
-                  </p>
+                  <div className="text-center py-12 space-y-3">
+                    <div className="w-12 h-12 rounded-2xl bg-emerald-600/20 border border-emerald-500/30 text-emerald-400 flex items-center justify-center mx-auto animate-pulse">
+                      <Radio className="w-6 h-6" />
+                    </div>
+                    <p className="text-slate-400 font-medium">Nenhum chamado aberto na fila no momento.</p>
+                    <p className="text-xs text-slate-600">Aguardando novos chamados de desenvolvedores via WebSocket...</p>
+                  </div>
                 ) : (
                   openQueue.map((item) => (
                     <div
@@ -309,7 +381,7 @@ export default function UnifiedDashboardPage() {
                       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-white/5 pb-3">
                         <div className="flex items-center gap-2 font-mono text-xs">
                           <span className="font-bold text-emerald-400 bg-emerald-500/10 px-2.5 py-1 rounded border border-emerald-500/20">
-                            #{item.id}
+                            #{item.id.substring(0, 8)}
                           </span>
                           <span className="text-slate-400">• Cliente: <strong className="text-white">{item.client_name || "Cliente"}</strong></span>
                         </div>
@@ -347,11 +419,11 @@ export default function UnifiedDashboardPage() {
 
                         <button
                           onClick={() => handleAcceptRequest(item.id)}
-                          disabled={acceptingId === item.id}
-                          className="w-full sm:w-auto px-6 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl text-xs transition shadow-lg glow-success flex items-center justify-center gap-2 disabled:opacity-50"
+                          disabled={acceptingId === item.id || !isOnline}
+                          className="w-full sm:w-auto px-6 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl text-xs transition shadow-lg glow-success flex items-center justify-center gap-2 disabled:opacity-50 cursor-pointer"
                         >
                           <Zap className="w-4 h-4 fill-white/20" />
-                          {acceptingId === item.id ? "Aceitando chamado..." : "Aceitar Chamado & Entrar na Sala"}
+                          {acceptingId === item.id ? "Adquirindo trava Redis & Abrindo Sala..." : "Aceitar Chamado & Entrar na Sala"}
                         </button>
                       </div>
                     </div>

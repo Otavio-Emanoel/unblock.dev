@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   mongodb:
     image: mongo:7.0
@@ -14,22 +12,16 @@ services:
       - --replSet
       - rs0
       - --bind_ip_all
-    healthcheck:
-      test: test $$(echo "rs.initiate().ok || rs.status().ok" | mongosh --quiet) -eq 1
-      interval: 10s
-      start_period: 5s
 
-  redis:
-    image: redis:7.2-alpine
-    container_name: unblock_redis
+  livekit:
+    image: livekit/livekit-server:latest
+    container_name: unblock_livekit
     restart: always
+    command: --dev --bind 0.0.0.0
     ports:
-      - "6379:6379"
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-      interval: 5s
-      timeout: 3s
-      retries: 5
+      - "7880:7880"
+      - "7881:7881"
+      - "7882:7882/udp"
 
 volumes:
   mongo_data:

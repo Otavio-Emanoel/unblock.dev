@@ -74,8 +74,12 @@ func (s *MatchmakerService) CreateSOS(ctx context.Context, clientUser *domain.Us
 	// Cache user balance in Redis
 	_ = s.balanceCache.SetBalance(ctx, clientUser.ID.Hex(), clientUser.Wallet.BalanceCents, 24*time.Hour)
 
-	// Publish SOS event to Redis Pub/Sub
-	msgBytes, _ := json.Marshal(req)
+	// Publish SOS event to Redis Pub/Sub for instant real-time broadcast to mentors
+	eventPayload := map[string]interface{}{
+		"type":    "REQUEST_CREATED",
+		"request": req,
+	}
+	msgBytes, _ := json.Marshal(eventPayload)
 	_ = s.pubSubRepo.PublishSOS(ctx, string(msgBytes))
 
 	return req, nil
@@ -159,6 +163,19 @@ func (s *MatchmakerService) AcceptSOS(ctx context.Context, mentorUser *domain.Us
 	if err != nil {
 		return nil, fmt.Errorf("failed to generate client token: %w", err)
 	}
+
+	// Publish REQUEST_ACCEPTED event to Redis Pub/Sub for instant client notification & queue update
+	acceptEvent := map[string]interface{}{
+		"type":         "REQUEST_ACCEPTED",
+		"request_id":   req.ID.Hex(),
+		"session_id":   session.ID.Hex(),
+		"client_id":    req.ClientID.Hex(),
+		"mentor_id":    mentorUser.ID.Hex(),
+		"mentor_name":  mentorUser.Name,
+		"livekit_room": roomName,
+	}
+	acceptBytes, _ := json.Marshal(acceptEvent)
+	_ = s.pubSubRepo.PublishSOS(ctx, string(acceptBytes))
 
 	return &AcceptResult{
 		Session:     session,

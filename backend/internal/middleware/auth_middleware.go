@@ -5,8 +5,16 @@ import (
 	"net/http"
 	"strings"
 
+	"unblock-backend/internal/domain"
 	"unblock-backend/internal/service"
 	"unblock-backend/pkg/response"
+)
+
+type ContextKey string
+
+const (
+	UserContextKey   ContextKey = "user"
+	ClaimsContextKey ContextKey = "claims"
 )
 
 type AuthMiddleware struct {
@@ -44,9 +52,22 @@ func (m *AuthMiddleware) Protect(next http.Handler) http.Handler {
 			return
 		}
 
-		ctx := context.WithValue(r.Context(), "user", user)
+		ctx := context.WithValue(r.Context(), UserContextKey, user)
+		ctx = context.WithValue(ctx, ClaimsContextKey, claims)
+		// Also store string key for backwards compatibility
+		ctx = context.WithValue(ctx, "user", user)
 		ctx = context.WithValue(ctx, "claims", claims)
 
 		next.ServeHTTP(w, r.WithContext(ctx))
 	})
+}
+
+func GetUserFromContext(ctx context.Context) *domain.User {
+	if u, ok := ctx.Value(UserContextKey).(*domain.User); ok {
+		return u
+	}
+	if u, ok := ctx.Value("user").(*domain.User); ok {
+		return u
+	}
+	return nil
 }

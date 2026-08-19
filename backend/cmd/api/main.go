@@ -73,7 +73,7 @@ func main() {
 	// 6. Handlers & Hub
 	authHandler := handler.NewAuthHandler(authSvc)
 	reqHandler := handler.NewRequestHandler(matchmakerSvc, reqRepo)
-	sessionHandler := handler.NewSessionHandler(sessionRepo, walletSvc, tickerEngine)
+	sessionHandler := handler.NewSessionHandler(sessionRepo, walletSvc, tickerEngine, livekitSvc, pubSubRepo)
 	walletHandler := handler.NewWalletHandler(walletSvc, txRepo)
 	webhookHandler := handler.NewWebhookHandler(tickerEngine, walletSvc, sessionRepo, logger)
 	wsHub := handler.NewWSHub(pubSubRepo, authSvc, logger)
@@ -124,6 +124,7 @@ func main() {
 		pr.Get("/api/sessions/{id}", sessionHandler.GetSession)
 		pr.Post("/api/sessions/{id}/end", sessionHandler.EndSession)
 		pr.Put("/api/sessions/{id}/code", sessionHandler.SaveCode)
+		pr.Post("/api/sessions/{id}/code", sessionHandler.SaveCode)
 
 		// Wallet
 		pr.Get("/api/wallet/balance", walletHandler.GetBalance)

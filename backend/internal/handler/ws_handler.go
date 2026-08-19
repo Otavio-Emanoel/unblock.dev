@@ -2,6 +2,7 @@ package handler
 
 import (
 	"context"
+	"encoding/json"
 	"log/slog"
 	"net/http"
 	"sync"
@@ -23,11 +24,21 @@ var upgrader = websocket.Upgrader{
 }
 
 type WSClient struct {
-	Hub    *WSHub
-	Conn   *websocket.Conn
-	Send   chan []byte
-	UserID string
-	Role   domain.Role
+	Hub     *WSHub
+	Conn    *websocket.Conn
+	Send    chan []byte
+	UserID  string
+	Role    domain.Role
+	RoomID  string
+}
+
+type WSIncomingMessage struct {
+	Type      string      `json:"type"`
+	SessionID string      `json:"session_id,omitempty"`
+	RoomID    string      `json:"room_id,omitempty"`
+	Code      string      `json:"code,omitempty"`
+	SenderID  string      `json:"sender_id,omitempty"`
+	Payload   interface{} `json:"payload,omitempty"`
 }
 
 type WSHub struct {
@@ -62,7 +73,26 @@ func (h *WSHub) Run(ctx context.Context) {
 
 			ch := pubsub.Channel()
 			for msg := range ch {
-				h.broadcastToMentors([]byte(msg.Payload))
+				var evt map[string]interface{}
+				if err := json.Unmarshal([]byte(msg.Payload), &evt); err == nil {
+					eventType, _ := evt["type"].(string)
+					switch eventType {
+					case "REQUEST_CREATED":
+						// Notify all online mentors
+						h.broadcastToMentors([]byte(msg.Payload))
+					case "REQUEST_ACCEPTED":
+						// Notify all mentors (to remove ticket from queue)
+						h.broadcastToMentors([]byte(msg.Payload))
+						// Notify specific client whose request was accepted
+						if clientID, ok := evt["client_id"].(string); ok {
+							h.sendToUser(clientID, []byte(msg.Payload))
+						}
+					default:
+						h.broadcastMessage([]byte(msg.Payload))
+					}
+				} else {
+					h.broadcastToMentors([]byte(msg.Payload))
+				}
 			}
 		}()
 	}
@@ -87,16 +117,21 @@ func (h *WSHub) Run(ctx context.Context) {
 			h.mu.Unlock()
 
 		case message := <-h.broadcast:
-			h.mu.RLock()
-			for client := range h.clients {
-				select {
-				case client.Send <- message:
-				default:
-					close(client.Send)
-					delete(h.clients, client)
-				}
-			}
-			h.mu.RUnlock()
+			h.broadcastMessage(message)
+		}
+	}
+}
+
+func (h *WSHub) broadcastMessage(message []byte) {
+	h.mu.RLock()
+	defer h.mu.RUnlock()
+
+	for client := range h.clients {
+		select {
+		case client.Send <- message:
+		default:
+			close(client.Send)
+			delete(h.clients, client)
 		}
 	}
 }
@@ -107,6 +142,38 @@ func (h *WSHub) broadcastToMentors(message []byte) {
 
 	for client := range h.clients {
 		if client.Role == domain.RoleMentor {
+			select {
+			case client.Send <- message:
+			default:
+				close(client.Send)
+				delete(h.clients, client)
+			}
+		}
+	}
+}
+
+func (h *WSHub) sendToUser(userID string, message []byte) {
+	h.mu.RLock()
+	defer h.mu.RUnlock()
+
+	for client := range h.clients {
+		if client.UserID == userID {
+			select {
+			case client.Send <- message:
+			default:
+				close(client.Send)
+				delete(h.clients, client)
+			}
+		}
+	}
+}
+
+func (h *WSHub) broadcastToSession(sessionID string, sender *WSClient, message []byte) {
+	h.mu.RLock()
+	defer h.mu.RUnlock()
+
+	for client := range h.clients {
+		if client != sender && (client.RoomID == sessionID || client.RoomID == "" || sessionID == "") {
 			select {
 			case client.Send <- message:
 			default:
@@ -136,12 +203,15 @@ func (h *WSHub) HandleWS(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	roomID := r.URL.Query().Get("room_id")
+
 	client := &WSClient{
 		Hub:    h,
 		Conn:   conn,
 		Send:   make(chan []byte, 256),
 		UserID: claims.UserID,
 		Role:   claims.Role,
+		RoomID: roomID,
 	}
 
 	h.register <- client
@@ -156,7 +226,7 @@ func (c *WSClient) readPump() {
 		c.Conn.Close()
 	}()
 
-	c.Conn.SetReadLimit(4096)
+	c.Conn.SetReadLimit(65536) // allow larger code snippets
 	_ = c.Conn.SetReadDeadline(time.Now().Add(60 * time.Second))
 	c.Conn.SetPongHandler(func(string) error {
 		_ = c.Conn.SetReadDeadline(time.Now().Add(60 * time.Second))
@@ -168,7 +238,25 @@ func (c *WSClient) readPump() {
 		if err != nil {
 			break
 		}
-		// Echo / Broadcast message if received
+
+		var incoming WSIncomingMessage
+		if err := json.Unmarshal(message, &incoming); err == nil {
+			if incoming.RoomID != "" {
+				c.RoomID = incoming.RoomID
+			} else if incoming.SessionID != "" {
+				c.RoomID = incoming.SessionID
+			}
+
+			// Broadcast code changes or room events to room participants
+			if incoming.Type == "CODE_CHANGE" || incoming.Type == "JOIN_ROOM" || incoming.Type == "SESSION_ENDED" {
+				incoming.SenderID = c.UserID
+				outBytes, _ := json.Marshal(incoming)
+				c.Hub.broadcastToSession(c.RoomID, c, outBytes)
+				continue
+			}
+		}
+
+		// Echo / Broadcast general message if received
 		c.Hub.broadcast <- message
 	}
 }
