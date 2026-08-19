@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { Mic, Video, Monitor, PhoneOff, Terminal as TerminalIcon, Code } from "lucide-react";
 import { api } from "@/lib/api";
 import { useAuthStore } from "@/stores/use-auth-store";
+import { AuthGuard } from "@/components/shared/AuthGuard";
 
 export default function RoomPage({
   params,
@@ -61,8 +62,9 @@ export default function RoomPage({
   const balanceBrl = (balanceCents / 100).toFixed(2);
 
   return (
-    <div className="h-screen bg-[#090d16] text-white flex flex-col overflow-hidden font-mono">
-      {/* Room Header */}
+    <AuthGuard>
+      <div className="h-screen bg-[#090d16] text-white flex flex-col overflow-hidden font-mono">
+        {/* Room Header */}
       <header className="h-14 px-4 bg-[#0f172a]/90 border-b border-white/10 flex items-center justify-between font-sans">
         <div className="flex items-center gap-3">
           <Link href="/dashboard" className="font-bold text-lg text-indigo-400">
@@ -186,6 +188,6 @@ export default function RoomPage({
           </div>
         </div>
       </div>
-    </div>
+    </AuthGuard>
   );
 }

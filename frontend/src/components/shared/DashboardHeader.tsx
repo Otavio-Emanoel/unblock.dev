@@ -1,7 +1,9 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { Zap, Wallet, Bell, LogOut, Code2, ShieldCheck, Plus } from "lucide-react";
+import { useAuthStore } from "@/stores/use-auth-store";
 
 interface DashboardHeaderProps {
   role: "dev" | "mentor";
@@ -9,7 +11,25 @@ interface DashboardHeaderProps {
   balance?: number;
 }
 
-export function DashboardHeader({ role, setRole, balance = 50.0 }: DashboardHeaderProps) {
+export function DashboardHeader({ role, setRole, balance = 0.0 }: DashboardHeaderProps) {
+  const router = useRouter();
+  const user = useAuthStore((s) => s.user);
+  const logout = useAuthStore((s) => s.logout);
+
+  const handleLogout = () => {
+    logout();
+    router.replace("/login");
+  };
+
+  const getInitials = (name?: string) => {
+    if (!name) return "US";
+    const parts = name.trim().split(" ");
+    if (parts.length >= 2) {
+      return (parts[0][0] + parts[1][0]).toUpperCase();
+    }
+    return name.substring(0, 2).toUpperCase();
+  };
+
   return (
     <header className="sticky top-0 z-50 w-full bg-[#0b0f19]/90 backdrop-blur-md border-b border-white/10 shadow-xl">
       <div className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
@@ -94,24 +114,26 @@ export function DashboardHeader({ role, setRole, balance = 50.0 }: DashboardHead
             <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-indigo-500 animate-pulse" />
           </button>
 
-          {/* User Profile */}
+          {/* User Profile & Real Logout */}
           <div className="flex items-center gap-3 pl-2 border-l border-white/10">
             <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-indigo-600 to-purple-500 border border-indigo-400/40 flex items-center justify-center text-white font-bold text-xs shadow-md">
-              OE
+              {getInitials(user?.name)}
             </div>
             <div className="hidden sm:block text-left">
-              <div className="text-xs font-bold text-white leading-tight">Otávio Emanoel</div>
+              <div className="text-xs font-bold text-white leading-tight">
+                {user?.name || "Usuário"}
+              </div>
               <div className="text-[10px] text-slate-400 font-mono">
-                {role === "dev" ? "Dev Full-Stack" : "Mentor Tier-1"}
+                {user?.role === "mentor" ? "Mentor Especialista" : "Desenvolvedor"}
               </div>
             </div>
-            <Link
-              href="/login"
-              title="Sair da conta"
-              className="p-1.5 text-slate-400 hover:text-red-400 transition"
+            <button
+              onClick={handleLogout}
+              title="Encerrar sessão segura"
+              className="p-1.5 text-slate-400 hover:text-red-400 transition cursor-pointer"
             >
               <LogOut className="w-4 h-4" />
-            </Link>
+            </button>
           </div>
         </div>
       </div>

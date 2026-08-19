@@ -18,10 +18,29 @@ export const useAuthStore = create<AuthState>()(
       user: null,
       token: null,
       isAuthenticated: false,
-      setAuth: (user, token) => set({ user, token, isAuthenticated: true }),
+      setAuth: (user, token) => {
+        if (typeof document !== "undefined") {
+          document.cookie = `unblock_token=${encodeURIComponent(token)}; path=/; max-age=604800; SameSite=Lax`;
+        }
+        set({ user, token, isAuthenticated: true });
+      },
       setUser: (user) => set({ user, isAuthenticated: !!user }),
-      setToken: (token) => set({ token }),
-      logout: () => set({ user: null, token: null, isAuthenticated: false }),
+      setToken: (token) => {
+        if (typeof document !== "undefined") {
+          if (token) {
+            document.cookie = `unblock_token=${encodeURIComponent(token)}; path=/; max-age=604800; SameSite=Lax`;
+          } else {
+            document.cookie = `unblock_token=; path=/; max-age=0; SameSite=Lax`;
+          }
+        }
+        set({ token });
+      },
+      logout: () => {
+        if (typeof document !== "undefined") {
+          document.cookie = `unblock_token=; path=/; max-age=0; SameSite=Lax`;
+        }
+        set({ user: null, token: null, isAuthenticated: false });
+      },
     }),
     {
       name: "unblock-auth-storage",
