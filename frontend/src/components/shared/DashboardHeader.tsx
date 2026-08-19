@@ -124,7 +124,7 @@ export function DashboardHeader({ role, setRole, balance = 0.0 }: DashboardHeade
                 {user?.name || "Usuário"}
               </div>
               <div className="text-[10px] text-slate-400 font-mono">
-                {user?.role === "mentor" ? "Mentor Especialista" : "Desenvolvedor"}
+                {user?.role?.toLowerCase() === "mentor" ? "Mentor Especialista" : "Desenvolvedor"}
               </div>
             </div>
             <button
