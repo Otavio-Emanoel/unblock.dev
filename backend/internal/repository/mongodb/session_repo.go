@@ -107,7 +107,13 @@ func (r *sessionRepo) SaveCodeSnippet(ctx context.Context, id bson.ObjectID, cod
 			"updated_at":         time.Now(),
 		},
 	}
-	_, err := r.coll.UpdateOne(ctx, bson.M{"_id": id}, update)
+	filter := bson.M{
+		"$or": []bson.M{
+			{"_id": id},
+			{"request_id": id},
+		},
+	}
+	_, err := r.coll.UpdateOne(ctx, filter, update)
 	if err != nil {
 		return fmt.Errorf("failed to save code snippet: %w", err)
 	}

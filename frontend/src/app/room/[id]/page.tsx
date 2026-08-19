@@ -155,17 +155,18 @@ export default function RoomPage({
       try {
         const s = await api.sessions.get(id);
         setSession(s);
-        if (s.code_snippet) {
+        const snippet = s.saved_code_snippet || s.code_snippet;
+        if (snippet) {
           try {
-            const parsed = JSON.parse(s.code_snippet);
+            const parsed = JSON.parse(snippet);
             if (Array.isArray(parsed) && parsed.length > 0) {
               setFiles(parsed);
               setActiveFileId(parsed[0].id);
             } else {
-              setFiles((prev) => [{ ...prev[0], content: s.code_snippet }, ...prev.slice(1)]);
+              setFiles((prev) => [{ ...prev[0], content: snippet }, ...prev.slice(1)]);
             }
           } catch {
-            setFiles((prev) => [{ ...prev[0], content: s.code_snippet }, ...prev.slice(1)]);
+            setFiles((prev) => [{ ...prev[0], content: snippet }, ...prev.slice(1)]);
           }
         }
       } catch (err: any) {
@@ -272,7 +273,8 @@ export default function RoomPage({
       setSaveStatus("saving");
       try {
         const payload = JSON.stringify(filesToSave);
-        await api.sessions.saveCode(id, payload);
+        const targetId = session?.id || id;
+        await api.sessions.saveCode(targetId, payload);
         setSaveStatus("saved");
         setLastSavedTime(new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" }));
       } catch (e) {
@@ -280,7 +282,7 @@ export default function RoomPage({
         setSaveStatus("unsaved");
       }
     },
-    [id]
+    [id, session]
   );
 
   // 5. Real-time WebSocket Multi-File & Chat Synchronization
