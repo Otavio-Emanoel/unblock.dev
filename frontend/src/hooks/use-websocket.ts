@@ -12,6 +12,8 @@ export interface WSMessage {
   mentor_id?: string;
   mentor_name?: string;
   code?: string;
+  file_id?: string;
+  file?: any;
   sender_id?: string;
   request?: any;
   session?: any;
