@@ -35,6 +35,7 @@ import { api } from "@/lib/api";
 import { useAuthStore } from "@/stores/use-auth-store";
 import { AuthGuard } from "@/components/shared/AuthGuard";
 import { useWebSocket } from "@/hooks/use-websocket";
+import { CustomModal, ModalConfig } from "@/components/shared/CustomModal";
 
 interface WorkspaceFile {
   id: string;
@@ -107,6 +108,21 @@ export default function RoomPage({
   const [isEnding, setIsEnding] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
+
+  // Custom Modal State
+  const [modalConfig, setModalConfig] = useState<ModalConfig>({
+    isOpen: false,
+    title: "",
+    description: "",
+  });
+
+  const showModal = (cfg: Omit<ModalConfig, "isOpen">) => {
+    setModalConfig({ ...cfg, isOpen: true });
+  };
+
+  const closeModal = () => {
+    setModalConfig((prev) => ({ ...prev, isOpen: false }));
+  };
 
   // Auto-Save Status
   const [saveStatus, setSaveStatus] = useState<"saved" | "saving" | "unsaved">("saved");
@@ -360,8 +376,13 @@ export default function RoomPage({
     // 5.5 Remote session ended
     const unsubEnd = subscribe("SESSION_ENDED", (msg) => {
       if (msg.session_id === id || msg.session?.id === id) {
-        alert("A sessão de mentoria foi finalizada.");
-        router.push("/dashboard");
+        showModal({
+          type: "info",
+          title: "Sessão Finalizada",
+          description: "A mentoria ao vivo foi encerrada. O tempo e os valores foram liquidados com sucesso.",
+          confirmText: "Voltar ao Painel",
+          onConfirm: () => router.push("/dashboard"),
+        });
       }
     });
 
@@ -399,8 +420,8 @@ export default function RoomPage({
     // Broadcast to peer
     sendMessage({
       type: "CODE_CHANGE",
-      session_id: id,
-      room_id: id,
+      session_id: session?.id || id,
+      room_id: session?.livekit_room_name || session?.id || id,
       file_id: activeFileId,
       code: newCode,
     });
@@ -432,14 +453,14 @@ export default function RoomPage({
       filesRef.current = updatedFiles;
       sendMessage({
         type: "CODE_CHANGE",
-        session_id: id,
-        room_id: id,
+        session_id: session?.id || id,
+        room_id: session?.livekit_room_name || session?.id || id,
         file_id: activeFileId,
         code: prevCode,
       });
       triggerSave(updatedFiles);
     }
-  }, [activeFileId, id, sendMessage, triggerSave]);
+  }, [activeFileId, id, sendMessage, triggerSave, session?.id, session?.livekit_room_name]);
 
   // Redo (Ctrl+Y / Ctrl+Shift+Z)
   const handleRedo = useCallback(() => {
@@ -455,14 +476,14 @@ export default function RoomPage({
       filesRef.current = updatedFiles;
       sendMessage({
         type: "CODE_CHANGE",
-        session_id: id,
-        room_id: id,
+        session_id: session?.id || id,
+        room_id: session?.livekit_room_name || session?.id || id,
         file_id: activeFileId,
         code: nextCode,
       });
       triggerSave(updatedFiles);
     }
-  }, [activeFileId, id, sendMessage, triggerSave]);
+  }, [activeFileId, id, sendMessage, triggerSave, session?.id, session?.livekit_room_name]);
 
   // Global Keyboard Shortcuts (Ctrl+S, Ctrl+Z, Ctrl+Y)
   useEffect(() => {
@@ -510,8 +531,8 @@ export default function RoomPage({
 
     sendMessage({
       type: "FILE_CREATE",
-      session_id: id,
-      room_id: id,
+      session_id: session?.id || id,
+      room_id: session?.livekit_room_name || session?.id || id,
       file: newFile,
     });
 
@@ -522,26 +543,45 @@ export default function RoomPage({
   const handleDeleteFile = (fileId: string, e: React.MouseEvent) => {
     e.stopPropagation();
     if (files.length <= 1) {
-      alert("O workspace precisa ter pelo menos um arquivo.");
+      showModal({
+        type: "warning",
+        title: "Arquivo Obrigatório",
+        description: "O workspace precisa ter pelo menos um arquivo ativo.",
+        confirmText: "Entendido",
+      });
       return;
     }
-    if (!confirm("Deseja realmente excluir este arquivo?")) return;
 
-    const updated = filesRef.current.filter((f) => f.id !== fileId);
-    setFiles(updated);
-    filesRef.current = updated;
-    if (activeFileId === fileId) {
-      setActiveFileId(updated[0].id);
-    }
+    const fileToDelete = files.find((f) => f.id === fileId);
 
-    sendMessage({
-      type: "FILE_DELETE",
-      session_id: id,
-      room_id: id,
-      file_id: fileId,
+    showModal({
+      type: "danger",
+      title: "Excluir Arquivo",
+      description: (
+        <span>
+          Deseja realmente remover o arquivo <strong className="text-white font-mono">{fileToDelete?.name || "selecionado"}</strong>? Essa ação é definitiva.
+        </span>
+      ),
+      confirmText: "Excluir Arquivo",
+      cancelText: "Cancelar",
+      onConfirm: () => {
+        const updated = filesRef.current.filter((f) => f.id !== fileId);
+        setFiles(updated);
+        filesRef.current = updated;
+        if (activeFileId === fileId) {
+          setActiveFileId(updated[0].id);
+        }
+
+        sendMessage({
+          type: "FILE_DELETE",
+          session_id: session?.id || id,
+          room_id: session?.livekit_room_name || session?.id || id,
+          file_id: fileId,
+        });
+
+        triggerSave(updated);
+      },
     });
-
-    triggerSave(updated);
   };
 
   // Media Controls (Toggle Mic & Camera)
@@ -552,7 +592,12 @@ export default function RoomPage({
       await livekitRoomRef.current.localParticipant.setMicrophoneEnabled(nextState);
       setIsMuted(!nextState);
     } catch (err: any) {
-      alert("Permissão de microfone não concedida pelo navegador.");
+      showModal({
+        type: "warning",
+        title: "Acesso ao Microfone",
+        description: "Permissão de microfone bloqueada pelo navegador. Permita o acesso ao microfone nas configurações da página para conversar.",
+        confirmText: "Entendido",
+      });
     }
   };
 
@@ -576,7 +621,12 @@ export default function RoomPage({
         }
       }
     } catch (err: any) {
-      alert("Permissão de câmera não concedida pelo navegador.");
+      showModal({
+        type: "warning",
+        title: "Acesso à Câmera",
+        description: "Permissão de câmera bloqueada pelo navegador. Permita o acesso à câmera nas configurações da página para transmitir vídeo.",
+        confirmText: "Entendido",
+      });
     }
   };
 
@@ -607,28 +657,54 @@ export default function RoomPage({
     setChatMessages((prev) => [...prev, newMsg]);
     sendMessage({
       type: "CHAT_MESSAGE",
-      session_id: id,
-      room_id: id,
+      session_id: session?.id || id,
+      room_id: session?.livekit_room_name || session?.id || id,
       payload: newMsg,
     });
     setChatInput("");
   };
 
-  // End Session & Financial Settlement
-  const handleEndSession = async () => {
-    if (!confirm("Deseja realmente encerrar a sessão e liquidar o pagamento?")) return;
-
-    setIsEnding(true);
-    try {
-      await triggerSave(filesRef.current);
-      await api.sessions.end(id);
-      router.push("/dashboard");
-    } catch (err: any) {
-      alert(err.message || "Erro ao encerrar sessão.");
-      router.push("/dashboard");
-    } finally {
-      setIsEnding(false);
-    }
+  // End Session & Financial Settlement with Custom Modal
+  const handleEndSession = () => {
+    showModal({
+      type: "danger",
+      title: "Encerrar Mentoria",
+      description: (
+        <div className="space-y-2">
+          <p>Deseja realmente finalizar a chamada de mentoria e liquidar os valores?</p>
+          <div className="p-3 bg-white/5 border border-white/10 rounded-xl space-y-1 text-[11px] font-mono">
+            <div className="flex justify-between text-slate-300">
+              <span>Tempo decorrido:</span>
+              <span className="font-bold text-white">{formatTimer(elapsedSeconds)}</span>
+            </div>
+            <div className="flex justify-between text-emerald-400">
+              <span>Total da sessão:</span>
+              <span className="font-bold">R$ {sessionCostBrl}</span>
+            </div>
+          </div>
+        </div>
+      ),
+      confirmText: "Encerrar e Liquidar",
+      cancelText: "Continuar na Sala",
+      onConfirm: async () => {
+        setIsEnding(true);
+        try {
+          await triggerSave(filesRef.current);
+          await api.sessions.end(id);
+          router.push("/dashboard");
+        } catch (err: any) {
+          showModal({
+            type: "danger",
+            title: "Erro ao Encerrar",
+            description: err.message || "Falha ao processar o encerramento da sessão.",
+            confirmText: "Voltar ao Painel",
+            onConfirm: () => router.push("/dashboard"),
+          });
+        } finally {
+          setIsEnding(false);
+        }
+      },
+    });
   };
 
   const formatTimer = (totalSecs: number) => {
@@ -663,6 +739,9 @@ export default function RoomPage({
   return (
     <AuthGuard>
       <div className="h-screen bg-[#090d16] text-white flex flex-col overflow-hidden font-mono">
+        {/* Custom Glassmorphism Modal */}
+        <CustomModal config={modalConfig} onClose={closeModal} />
+
         {/* Room Header */}
         <header className="h-14 px-4 bg-[#0f172a]/90 border-b border-white/10 flex items-center justify-between font-sans">
           <div className="flex items-center gap-3">

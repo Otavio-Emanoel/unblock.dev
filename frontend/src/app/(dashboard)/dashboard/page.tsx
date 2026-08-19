@@ -20,6 +20,8 @@ import { api } from "@/lib/api";
 import { useAuthStore } from "@/stores/use-auth-store";
 import { useWebSocket } from "@/hooks/use-websocket";
 
+import { CustomModal, ModalConfig } from "@/components/shared/CustomModal";
+
 export default function UnifiedDashboardPage() {
   const router = useRouter();
   const user = useAuthStore((s) => s.user);
@@ -31,6 +33,21 @@ export default function UnifiedDashboardPage() {
   const [openQueue, setOpenQueue] = useState<any[]>([]);
   const [acceptingId, setAcceptingId] = useState<string | null>(null);
   const [notification, setNotification] = useState<string | null>(null);
+
+  // Custom Modal State
+  const [modalConfig, setModalConfig] = useState<ModalConfig>({
+    isOpen: false,
+    title: "",
+    description: "",
+  });
+
+  const showModal = (cfg: Omit<ModalConfig, "isOpen">) => {
+    setModalConfig({ ...cfg, isOpen: true });
+  };
+
+  const closeModal = () => {
+    setModalConfig((prev) => ({ ...prev, isOpen: false }));
+  };
 
   const { subscribe } = useWebSocket();
 
@@ -51,37 +68,28 @@ export default function UnifiedDashboardPage() {
     }
   };
 
+  // 1. Initial Load & Polling
   useEffect(() => {
     loadData();
+    const interval = setInterval(loadData, 5000);
+    return () => clearInterval(interval);
   }, [isMentor]);
 
-  // Real-time WebSocket Listeners for Queue & Accepted Requests
+  // 2. Real-time WebSocket Listeners for Instant Ticket Updates
   useEffect(() => {
-    // 1. New SOS Request created by client -> add to mentor's live queue
     const unsubCreated = subscribe("REQUEST_CREATED", (msg) => {
-      if (isMentor && msg.request) {
-        setOpenQueue((prev) => {
-          const exists = prev.some((r) => r.id === msg.request.id);
-          if (exists) return prev;
-          return [msg.request, ...prev];
-        });
-        setNotification(`🚨 Novo chamado SOS na fila: "${msg.request.title}"`);
+      if (isMentor) {
+        setNotification("🔔 Novo chamado SOS aberto na fila!");
         setTimeout(() => setNotification(null), 5000);
+        loadData();
       }
     });
 
-    // 2. SOS Request accepted by mentor -> remove from queue & notify client
     const unsubAccepted = subscribe("REQUEST_ACCEPTED", (msg) => {
-      if (isMentor && msg.request_id) {
-        setOpenQueue((prev) => prev.filter((r) => r.id !== msg.request_id));
-      }
-
-      // If current user is the client whose ticket was accepted:
-      if (!isMentor && user?.id && msg.client_id === user.id && msg.session_id) {
-        setNotification(`🎉 O mentor ${msg.mentor_name || "especialista"} aceitou seu chamado! Redirecionando para a sala...`);
-        setTimeout(() => {
-          router.push(`/room/${msg.session_id}`);
-        }, 1500);
+      loadData();
+      if (!isMentor && msg.client_id === user?.id) {
+        const targetId = msg.session_id || msg.request_id;
+        router.push(`/room/${targetId}`);
       }
     });
 
@@ -97,7 +105,13 @@ export default function UnifiedDashboardPage() {
       const res = await api.requests.accept(requestId);
       router.push(`/room/${res.session.id}`);
     } catch (err: any) {
-      alert(err.message || "Erro ao aceitar chamado.");
+      showModal({
+        type: "danger",
+        title: "Não foi possível aceitar",
+        description: err.message || "Este chamado já pode ter sido atendido por outro mentor ou cancelado.",
+        confirmText: "Atualizar Fila",
+        onConfirm: loadData,
+      });
       await loadData();
     } finally {
       setAcceptingId(null);
@@ -108,6 +122,7 @@ export default function UnifiedDashboardPage() {
 
   return (
     <div className="min-h-screen bg-[#090d16] text-white flex flex-col">
+      <CustomModal config={modalConfig} onClose={closeModal} />
       <DashboardHeader balance={parseFloat(balanceBrl)} />
 
       {/* Real-time Notification Banner */}

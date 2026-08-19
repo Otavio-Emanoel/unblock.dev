@@ -5,6 +5,7 @@ import { DashboardHeader } from "@/components/shared/DashboardHeader";
 import { Wallet, Clock, History, CheckCircle2, AlertCircle, ArrowUpRight, ArrowDownLeft, ShieldCheck, Zap } from "lucide-react";
 import { api } from "@/lib/api";
 import { useAuthStore } from "@/stores/use-auth-store";
+import { CustomModal, ModalConfig } from "@/components/shared/CustomModal";
 
 export default function WalletPage() {
   const user = useAuthStore((s) => s.user);
@@ -15,6 +16,21 @@ export default function WalletPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [successMsg, setSuccessMsg] = useState("");
   const [errorMsg, setErrorMsg] = useState("");
+
+  // Custom Modal State
+  const [modalConfig, setModalConfig] = useState<ModalConfig>({
+    isOpen: false,
+    title: "",
+    description: "",
+  });
+
+  const showModal = (cfg: Omit<ModalConfig, "isOpen">) => {
+    setModalConfig({ ...cfg, isOpen: true });
+  };
+
+  const closeModal = () => {
+    setModalConfig((prev) => ({ ...prev, isOpen: false }));
+  };
 
   const loadWalletData = async () => {
     try {
@@ -52,6 +68,7 @@ export default function WalletPage() {
 
   return (
     <div className="min-h-screen bg-[#090d16] text-white flex flex-col">
+      <CustomModal config={modalConfig} onClose={closeModal} />
       <DashboardHeader balance={parseFloat(balanceBrl)} />
 
       <main className="flex-1 max-w-7xl w-full mx-auto p-6 md:p-8 space-y-8">
@@ -125,7 +142,21 @@ export default function WalletPage() {
             </div>
           ) : (
             <button
-              onClick={() => alert("Solicitação de saque Pix enviada para a chave cadastrada!")}
+              onClick={() =>
+                showModal({
+                  type: "success",
+                  title: "Saque Pix Solicitado",
+                  description: (
+                    <div className="space-y-2">
+                      <p>Sua solicitação de saque instantâneo foi enviada com sucesso!</p>
+                      <p className="text-slate-400 text-[11px]">
+                        O valor disponível em saldo será creditado na sua chave Pix cadastrada em até alguns segundos.
+                      </p>
+                    </div>
+                  ),
+                  confirmText: "Entendido",
+                })
+              }
               className="px-6 py-3.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-2xl text-xs transition shadow-lg glow-success cursor-pointer flex items-center gap-2"
             >
               <ArrowUpRight className="w-4 h-4" />

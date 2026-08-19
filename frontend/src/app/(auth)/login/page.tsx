@@ -7,6 +7,7 @@ import { Zap, Mail, Lock, Eye, EyeOff, ArrowRight, CheckCircle2, Code, Sparkles,
 import { ParticleBackground } from "@/components/landing/ParticleBackground";
 import { api } from "@/lib/api";
 import { useAuthStore } from "@/stores/use-auth-store";
+import { CustomModal, ModalConfig } from "@/components/shared/CustomModal";
 
 function GithubIcon(props: React.SVGProps<SVGSVGElement>) {
   return (
@@ -24,6 +25,21 @@ export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
+
+  // Custom Modal State
+  const [modalConfig, setModalConfig] = useState<ModalConfig>({
+    isOpen: false,
+    title: "",
+    description: "",
+  });
+
+  const showModal = (cfg: Omit<ModalConfig, "isOpen">) => {
+    setModalConfig({ ...cfg, isOpen: true });
+  };
+
+  const closeModal = () => {
+    setModalConfig((prev) => ({ ...prev, isOpen: false }));
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -63,6 +79,9 @@ export default function LoginPage() {
 
   return (
     <div className="min-h-screen bg-[#090d16] text-white flex flex-col justify-between relative overflow-hidden selection:bg-indigo-600 selection:text-white">
+      {/* Custom Glassmorphism Modal */}
+      <CustomModal config={modalConfig} onClose={closeModal} />
+
       {/* Background Interactive Particles */}
       <ParticleBackground />
 
@@ -215,16 +234,32 @@ export default function LoginPage() {
                   <label className="block text-xs font-semibold text-slate-300 font-mono">
                     Senha
                   </label>
-                  <a
-                    href="#forgot"
-                    onClick={(e) => {
-                      e.preventDefault();
-                      alert("Link de redefinição enviado para seu e-mail.");
-                    }}
-                    className="text-[11px] text-indigo-400 hover:text-indigo-300 transition"
+                  <button
+                    type="button"
+                    onClick={() =>
+                      showModal({
+                        type: "info",
+                        title: "Redefinição de Senha",
+                        description: (
+                          <div className="space-y-2">
+                            <p>
+                              Enviamos as instruções de recuperação de conta para o e-mail:
+                            </p>
+                            <div className="p-2.5 bg-slate-900 border border-white/10 rounded-xl font-mono text-emerald-400 text-[11px]">
+                              {email.trim() || "seu-email@dominio.com"}
+                            </div>
+                            <p className="text-slate-400 text-[11px]">
+                              Verifique sua caixa de entrada e pasta de spam para redefinir sua senha.
+                            </p>
+                          </div>
+                        ),
+                        confirmText: "Entendido",
+                      })
+                    }
+                    className="text-[11px] text-indigo-400 hover:text-indigo-300 transition cursor-pointer"
                   >
                     Esqueceu a senha?
-                  </a>
+                  </button>
                 </div>
                 <div className="relative">
                   <Lock className="w-4 h-4 text-slate-500 absolute left-3.5 top-1/2 -translate-y-1/2" />
