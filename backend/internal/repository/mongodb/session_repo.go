@@ -54,6 +54,18 @@ func (r *sessionRepo) GetByID(ctx context.Context, id bson.ObjectID) (*domain.Se
 	return &session, nil
 }
 
+func (r *sessionRepo) GetByRequestID(ctx context.Context, requestID bson.ObjectID) (*domain.Session, error) {
+	var session domain.Session
+	err := r.coll.FindOne(ctx, bson.M{"request_id": requestID}).Decode(&session)
+	if err != nil {
+		if errors.Is(err, mongo.ErrNoDocuments) {
+			return nil, nil
+		}
+		return nil, fmt.Errorf("failed to get session by request id: %w", err)
+	}
+	return &session, nil
+}
+
 func (r *sessionRepo) GetByRoomName(ctx context.Context, roomName string) (*domain.Session, error) {
 	var session domain.Session
 	err := r.coll.FindOne(ctx, bson.M{"livekit_room_name": roomName}).Decode(&session)

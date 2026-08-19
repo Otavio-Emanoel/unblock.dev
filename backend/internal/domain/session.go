@@ -43,6 +43,7 @@ type Session struct {
 type SessionRepository interface {
 	Create(ctx context.Context, session *Session) error
 	GetByID(ctx context.Context, id bson.ObjectID) (*Session, error)
+	GetByRequestID(ctx context.Context, requestID bson.ObjectID) (*Session, error)
 	GetByRoomName(ctx context.Context, roomName string) (*Session, error)
 	ListByUser(ctx context.Context, userID bson.ObjectID) ([]*Session, error)
 	SaveCodeSnippet(ctx context.Context, id bson.ObjectID, code string) error

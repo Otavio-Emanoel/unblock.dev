@@ -81,12 +81,9 @@ func (h *WSHub) Run(ctx context.Context) {
 						// Notify all online mentors
 						h.broadcastToMentors([]byte(msg.Payload))
 					case "REQUEST_ACCEPTED":
-						// Notify all mentors (to remove ticket from queue)
-						h.broadcastToMentors([]byte(msg.Payload))
-						// Notify specific client whose request was accepted
-						if clientID, ok := evt["client_id"].(string); ok {
-							h.sendToUser(clientID, []byte(msg.Payload))
-						}
+						// Broadcast to all connected clients (mentors update queue, target client redirects to room)
+						h.logger.Info("Broadcasting REQUEST_ACCEPTED event", "payload", msg.Payload)
+						h.broadcastMessage([]byte(msg.Payload))
 					default:
 						h.broadcastMessage([]byte(msg.Payload))
 					}

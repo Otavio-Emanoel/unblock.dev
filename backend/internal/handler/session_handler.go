@@ -49,8 +49,12 @@ func (h *SessionHandler) GetSession(w http.ResponseWriter, r *http.Request) {
 
 	session, err := h.sessionRepo.GetByID(r.Context(), oid)
 	if err != nil || session == nil {
-		response.Error(w, http.StatusNotFound, "Sessão não encontrada")
-		return
+		// Fallback: check if the param is the request ID
+		session, err = h.sessionRepo.GetByRequestID(r.Context(), oid)
+		if err != nil || session == nil {
+			response.Error(w, http.StatusNotFound, "Sessão não encontrada")
+			return
+		}
 	}
 
 	user := middleware.GetUserFromContext(r.Context())
@@ -91,11 +95,11 @@ func (h *SessionHandler) GetSession(w http.ResponseWriter, r *http.Request) {
 		"livekit_token":     liveKitToken,
 		"livekit_url":       "ws://localhost:7880",
 		"yjs_doc_id":        session.YjsDocID,
-		"code_snippet":      session.CodeSnippet,
+		"code_snippet":      session.SavedCodeSnippet,
 		"started_at":        session.StartedAt,
 		"ended_at":          session.EndedAt,
 		"duration_seconds":  session.DurationSeconds,
-		"total_cost_cents":  session.TotalCostCents,
+		"total_cost_cents":  session.FinancialSummary.TotalChargedCents,
 		"is_mentor":         session.MentorID == user.ID,
 		"is_client":         session.ClientID == user.ID,
 	}

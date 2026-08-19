@@ -32,21 +32,49 @@ export default function RequestSOSPage() {
     }
   }, [isMentor, router]);
 
-  // Listen for real-time acceptance when waiting
+  // Listen for real-time acceptance when waiting (both WebSocket and Polling fallback)
   useEffect(() => {
     if (!createdRequest) return;
 
+    // 1. WebSocket push listener
     const unsub = subscribe("REQUEST_ACCEPTED", (msg) => {
-      if (msg.request_id === createdRequest.id || msg.client_id === user?.id) {
+      if (
+        msg.request_id === createdRequest.id ||
+        msg.client_id === user?.id ||
+        (createdRequest.id && msg.request_id && msg.request_id.toString() === createdRequest.id.toString())
+      ) {
         setAcceptedSession(msg);
         setTimeout(() => {
-          router.push(`/room/${msg.session_id}`);
-        }, 1500);
+          router.push(`/room/${msg.session_id || msg.request_id}`);
+        }, 1000);
       }
     });
 
+    // 2. Active 1.5s Polling Fallback to guarantee zero missed redirects
+    const interval = setInterval(async () => {
+      try {
+        const myReqs = await api.requests.listMy();
+        const found = myReqs.find(
+          (r: any) => r.id === createdRequest.id || (r._id && r._id === createdRequest.id)
+        );
+        if (found && (found.status === "ACCEPTED" || found.status === "COMPLETED")) {
+          clearInterval(interval);
+          setAcceptedSession({
+            session_id: found.id,
+            mentor_name: "Mentor Especialista",
+          });
+          setTimeout(() => {
+            router.push(`/room/${found.id}`);
+          }, 1000);
+        }
+      } catch (pollErr) {
+        console.warn("Poll check error", pollErr);
+      }
+    }, 1500);
+
     return () => {
       unsub();
+      clearInterval(interval);
     };
   }, [createdRequest, subscribe, user?.id, router]);
 

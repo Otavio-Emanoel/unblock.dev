@@ -1,6 +1,6 @@
 "use client";
 
-import { use, useEffect, useState, useRef, useCallback } from "react";
+import { use, useEffect, useState, useRef } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
@@ -21,8 +21,9 @@ import {
   Users,
   ShieldCheck,
   Zap,
+  Volume2,
 } from "lucide-react";
-import { Room, RoomEvent, Track, createLocalVideoTrack, createLocalAudioTrack } from "livekit-client";
+import { Room, RoomEvent, Track } from "livekit-client";
 import { api } from "@/lib/api";
 import { useAuthStore } from "@/stores/use-auth-store";
 import { AuthGuard } from "@/components/shared/AuthGuard";
@@ -45,16 +46,18 @@ export default function RoomPage({
   const [errorMessage, setErrorMessage] = useState("");
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
 
-  // Media Controls State
-  const [isMuted, setIsMuted] = useState(false);
-  const [isCameraOff, setIsCameraOff] = useState(false);
+  // Media Controls State (DEFAULT: OFF / MUTED)
+  const [isMuted, setIsMuted] = useState(true);
+  const [isCameraOff, setIsCameraOff] = useState(true);
   const [isScreenSharing, setIsScreenSharing] = useState(false);
   const [remoteParticipantConnected, setRemoteParticipantConnected] = useState(false);
   const [remoteParticipantName, setRemoteParticipantName] = useState("Aguardando participante...");
+  const [remoteHasVideo, setRemoteHasVideo] = useState(false);
+  const [remoteHasAudio, setRemoteHasAudio] = useState(false);
 
   // Collaborative Code State
   const [savedCode, setSavedCode] = useState<string>(
-    `package main\n\nimport "fmt"\nimport "sync"\n\nfunc main() {\n\t// SOS Pair Programming Session\n\tfmt.Println("Conectado ao vivo com seu mentor no Unblock.dev!")\n}`
+    `package main\n\nimport "fmt"\nimport "sync"\n\nfunc main() {\n\t// SOS Pair Programming Session\n\tfmt.Println("Conectado ao vivo no Unblock.dev!")\n}`
   );
   const [terminalOutput, setTerminalOutput] = useState<string[]>([
     "$ go version",
@@ -65,11 +68,11 @@ export default function RoomPage({
 
   // Chat State
   const [chatMessages, setChatMessages] = useState<Array<{ sender: string; text: string; time: string }>>([
-    { sender: "Sistema", text: "Bem-vindos à sessão de mentoria ao vivo do Unblock.dev!", time: "00:00" },
+    { sender: "Sistema", text: "Bem-vindos à sala de mentoria ao vivo do Unblock.dev!", time: "00:00" },
   ]);
   const [chatInput, setChatInput] = useState("");
 
-  // Video Refs
+  // Video & Audio Element Refs
   const localVideoRef = useRef<HTMLVideoElement | null>(null);
   const remoteVideoRef = useRef<HTMLVideoElement | null>(null);
   const livekitRoomRef = useRef<Room | null>(null);
@@ -112,7 +115,7 @@ export default function RoomPage({
     return () => clearInterval(timer);
   }, []);
 
-  // 3. Connect LiveKit Video & Audio Room
+  // 3. Connect LiveKit Video & Audio Room (Default: Receive Only)
   useEffect(() => {
     if (!session?.livekit_token) return;
 
@@ -127,49 +130,60 @@ export default function RoomPage({
 
         livekitRoomRef.current = room;
 
-        // Track Subscribed (Remote participant turned on Camera/Mic)
+        // When remote participant publishes a track
         room.on(RoomEvent.TrackSubscribed, (track, publication, participant) => {
           setRemoteParticipantConnected(true);
           setRemoteParticipantName(participant.name || participant.identity);
 
-          if (track.kind === Track.Kind.Video && remoteVideoRef.current) {
-            track.attach(remoteVideoRef.current);
+          if (track.kind === Track.Kind.Video) {
+            setRemoteHasVideo(true);
+            if (remoteVideoRef.current) {
+              track.attach(remoteVideoRef.current);
+            }
           }
           if (track.kind === Track.Kind.Audio) {
-            const el = track.attach();
-            document.body.appendChild(el);
+            setRemoteHasAudio(true);
+            const audioElement = track.attach();
+            audioElement.id = `remote-audio-${participant.identity}`;
+            document.body.appendChild(audioElement);
           }
+        });
+
+        room.on(RoomEvent.TrackUnsubscribed, (track) => {
+          if (track.kind === Track.Kind.Video) {
+            setRemoteHasVideo(false);
+          }
+          if (track.kind === Track.Kind.Audio) {
+            setRemoteHasAudio(false);
+          }
+          track.detach();
         });
 
         // Participant Joined
         room.on(RoomEvent.ParticipantConnected, (participant) => {
           setRemoteParticipantConnected(true);
           setRemoteParticipantName(participant.name || participant.identity);
-          setTerminalOutput((prev) => [...prev, `[LiveKit] ${participant.name || "Participante"} conectou-se à chamada.`]);
+          setTerminalOutput((prev) => [
+            ...prev,
+            `[LiveKit] ${participant.name || "Participante"} conectou-se à chamada.`,
+          ]);
         });
 
         // Participant Disconnected
         room.on(RoomEvent.ParticipantDisconnected, (participant) => {
           setRemoteParticipantConnected(false);
-          setTerminalOutput((prev) => [...prev, `[LiveKit] ${participant.name || "Participante"} desconectou-se.`]);
+          setRemoteHasVideo(false);
+          setRemoteHasAudio(false);
+          setTerminalOutput((prev) => [
+            ...prev,
+            `[LiveKit] ${participant.name || "Participante"} desconectou-se.`,
+          ]);
         });
 
-        // Connect to LiveKit server
+        // Connect to LiveKit server (defaults to disabled camera & mic)
         const livekitUrl = session.livekit_url || "ws://localhost:7880";
         await room.connect(livekitUrl, session.livekit_token);
-
-        // Publish local camera and mic
-        try {
-          await room.localParticipant.enableCameraAndMicrophone();
-
-          // Attach local video track
-          const localTrackPub = Array.from(room.localParticipant.videoTrackPublications.values())[0];
-          if (localTrackPub?.track && localVideoRef.current) {
-            localTrackPub.track.attach(localVideoRef.current);
-          }
-        } catch (mediaErr) {
-          console.warn("Camera/Mic permission not granted or headless mode", mediaErr);
-        }
+        setTerminalOutput((prev) => [...prev, "[LiveKit] Conectado com sucesso ao servidor WebRTC."]);
       } catch (e) {
         console.error("LiveKit connection error", e);
       }
@@ -209,7 +223,7 @@ export default function RoomPage({
 
     // Subscribe to remote session ended
     const unsubEnd = subscribe("SESSION_ENDED", (msg) => {
-      if (msg.session_id === id) {
+      if (msg.session_id === id || msg.session?.id === id) {
         alert("A sessão de mentoria foi finalizada.");
         router.push("/dashboard");
       }
@@ -237,34 +251,69 @@ export default function RoomPage({
     }, 100);
   };
 
-  // Toggle Microphone
+  // Toggle Microphone (Enable/Disable)
   const handleToggleMic = async () => {
-    if (livekitRoomRef.current) {
+    if (!livekitRoomRef.current) return;
+    try {
       const nextState = !isMuted;
-      await livekitRoomRef.current.localParticipant.setMicrophoneEnabled(!nextState);
-      setIsMuted(nextState);
+      await livekitRoomRef.current.localParticipant.setMicrophoneEnabled(nextState);
+      setIsMuted(!nextState);
+      setTerminalOutput((prev) => [
+        ...prev,
+        `[Áudio] Microfone ${nextState ? "ATIVADO" : "MUTADO"}.`,
+      ]);
+    } catch (err: any) {
+      alert("Permissão de microfone não concedida pelo navegador.");
+      console.warn("Microphone error", err);
     }
   };
 
-  // Toggle Camera
+  // Toggle Camera (Enable/Disable)
   const handleToggleCamera = async () => {
-    if (livekitRoomRef.current) {
-      const nextState = !isCameraOff;
-      await livekitRoomRef.current.localParticipant.setCameraEnabled(!nextState);
-      setIsCameraOff(nextState);
+    if (!livekitRoomRef.current) return;
+    try {
+      const willTurnOn = isCameraOff;
+      await livekitRoomRef.current.localParticipant.setCameraEnabled(willTurnOn);
+      setIsCameraOff(!willTurnOn);
+
+      if (willTurnOn) {
+        // Attach local camera track to local video element
+        const localTrackPub = Array.from(
+          livekitRoomRef.current.localParticipant.videoTrackPublications.values()
+        )[0];
+        if (localTrackPub?.track && localVideoRef.current) {
+          localTrackPub.track.attach(localVideoRef.current);
+        }
+      } else {
+        if (localVideoRef.current) {
+          localVideoRef.current.srcObject = null;
+        }
+      }
+
+      setTerminalOutput((prev) => [
+        ...prev,
+        `[Vídeo] Câmera ${willTurnOn ? "ATIVADA" : "DESATIVADA"}.`,
+      ]);
+    } catch (err: any) {
+      alert("Permissão de câmera não concedida pelo navegador.");
+      console.warn("Camera error", err);
     }
   };
 
   // Toggle Screen Share
   const handleToggleScreenShare = async () => {
-    if (livekitRoomRef.current) {
-      const nextState = !isScreenSharing;
-      try {
-        await livekitRoomRef.current.localParticipant.setScreenShareEnabled(nextState);
-        setIsScreenSharing(nextState);
-      } catch (err) {
-        console.warn("Screen share cancelled", err);
-      }
+    if (!livekitRoomRef.current) return;
+    const nextState = !isScreenSharing;
+    try {
+      await livekitRoomRef.current.localParticipant.setScreenShareEnabled(nextState);
+      setIsScreenSharing(nextState);
+      setTerminalOutput((prev) => [
+        ...prev,
+        `[Compartilhamento] Tela ${nextState ? "COMPARTILHADA" : "PARADA"}.`,
+      ]);
+    } catch (err) {
+      console.warn("Screen share error/cancelled", err);
+      setIsScreenSharing(false);
     }
   };
 
@@ -336,7 +385,6 @@ export default function RoomPage({
     return `${mins}:${secs}`;
   };
 
-  const balanceBrl = (balanceCents / 100).toFixed(2);
   const minuteRateBrl = session?.minute_rate_cents ? (session.minute_rate_cents / 100).toFixed(2) : "3.50";
   const sessionCostBrl = ((Math.ceil(elapsedSeconds / 60) * (session?.minute_rate_cents || 350)) / 100).toFixed(2);
 
@@ -351,7 +399,7 @@ export default function RoomPage({
           <p className="text-xs text-slate-400 max-w-md text-center">{errorMessage}</p>
           <Link
             href="/dashboard"
-            className="px-6 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-bold transition shadow-lg"
+            className="px-6 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-bold transition shadow-lg cursor-pointer"
           >
             Voltar ao Painel
           </Link>
@@ -405,8 +453,41 @@ export default function RoomPage({
 
         {/* Main Workspace Layout */}
         <div className="flex-1 grid grid-cols-12 overflow-hidden">
-          {/* Left Column: Two-Way Video Grid, Controls & Real-Time Chat (4 cols) */}
+          {/* Left Column: Two-Way Video Grid, Media Permission Banner & Chat (4 cols) */}
           <div className="col-span-12 md:col-span-4 border-r border-white/10 bg-[#0f172a]/40 p-3 flex flex-col gap-3 font-sans overflow-hidden">
+            {/* Privacy & Media Activation Prompt Banner (Default Off) */}
+            {(isMuted || isCameraOff) && (
+              <div className="p-3 rounded-2xl bg-indigo-950/60 border border-indigo-500/30 flex items-center justify-between gap-2 text-xs">
+                <div className="flex items-center gap-2">
+                  <div className="w-7 h-7 rounded-lg bg-indigo-600/30 border border-indigo-500/40 text-indigo-300 flex items-center justify-center flex-shrink-0">
+                    <ShieldCheck className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <div className="font-bold text-white text-[11px]">Câmera &amp; Áudio Desativados</div>
+                    <div className="text-[10px] text-slate-400">Ative para iniciar a chamada com seu par:</div>
+                  </div>
+                </div>
+                <div className="flex gap-1.5">
+                  {isMuted && (
+                    <button
+                      onClick={handleToggleMic}
+                      className="px-2.5 py-1 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-[10px] font-bold transition flex items-center gap-1 cursor-pointer"
+                    >
+                      <Mic className="w-3 h-3" /> Ligar Mic
+                    </button>
+                  )}
+                  {isCameraOff && (
+                    <button
+                      onClick={handleToggleCamera}
+                      className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-[10px] font-bold transition flex items-center gap-1 cursor-pointer"
+                    >
+                      <Video className="w-3 h-3" /> Ligar Câmera
+                    </button>
+                  )}
+                </div>
+              </div>
+            )}
+
             {/* Live Video Grid (Remote + Local) */}
             <div className="grid grid-rows-2 gap-2 h-72">
               {/* Remote Participant Video (Mentor / Client) */}
@@ -415,23 +496,31 @@ export default function RoomPage({
                   ref={remoteVideoRef}
                   autoPlay
                   playsInline
-                  className="w-full h-full object-cover"
+                  className={`w-full h-full object-cover ${remoteHasVideo ? "block" : "hidden"}`}
                 />
-                {!remoteParticipantConnected && (
+                {!remoteHasVideo && (
                   <div className="absolute inset-0 flex flex-col items-center justify-center bg-slate-950/80 space-y-2 p-4 text-center">
                     <div className="w-10 h-10 rounded-full bg-indigo-600/30 border border-indigo-500/50 flex items-center justify-center text-indigo-300 animate-pulse">
                       <Users className="w-5 h-5" />
                     </div>
                     <span className="text-xs text-slate-300 font-semibold font-sans">
-                      Aguardando conexão do outro participante...
+                      {remoteParticipantConnected
+                        ? `${remoteParticipantName} (Câmera Desligada)`
+                        : "Aguardando conexão do outro participante..."}
                     </span>
-                    <span className="text-[10px] text-slate-500 font-mono">
-                      Ambos entrarão automaticamente nesta sala
-                    </span>
+                    {remoteHasAudio && (
+                      <span className="text-[10px] text-emerald-400 font-mono flex items-center gap-1">
+                        <Volume2 className="w-3 h-3 animate-pulse" /> Áudio Remoto Ativo
+                      </span>
+                    )}
                   </div>
                 )}
                 <span className="absolute bottom-2 left-2 text-[10px] bg-black/70 px-2 py-0.5 rounded-md text-slate-300 font-mono flex items-center gap-1.5 border border-white/10">
-                  <span className={`w-1.5 h-1.5 rounded-full ${remoteParticipantConnected ? "bg-emerald-500" : "bg-amber-500"}`} />
+                  <span
+                    className={`w-1.5 h-1.5 rounded-full ${
+                      remoteParticipantConnected ? "bg-emerald-500" : "bg-amber-500"
+                    }`}
+                  />
                   {remoteParticipantConnected ? remoteParticipantName : "Participante Remoto"}
                 </span>
               </div>
@@ -443,18 +532,18 @@ export default function RoomPage({
                   autoPlay
                   playsInline
                   muted
-                  className="w-full h-full object-cover scale-x-[-1]"
+                  className={`w-full h-full object-cover scale-x-[-1] ${!isCameraOff ? "block" : "hidden"}`}
                 />
                 {isCameraOff && (
                   <div className="absolute inset-0 flex flex-col items-center justify-center bg-slate-900 space-y-1">
                     <div className="w-9 h-9 rounded-full bg-slate-800 border border-white/10 flex items-center justify-center text-slate-400">
                       <VideoOff className="w-4 h-4" />
                     </div>
-                    <span className="text-[11px] text-slate-400 font-mono">Câmera Desativada</span>
+                    <span className="text-[11px] text-slate-400 font-mono">Sua Câmera está Desligada</span>
                   </div>
                 )}
                 <span className="absolute bottom-2 left-2 text-[10px] bg-black/70 px-2 py-0.5 rounded-md text-slate-300 font-mono flex items-center gap-1.5 border border-white/10">
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                  <span className={`w-1.5 h-1.5 rounded-full ${!isCameraOff ? "bg-emerald-500" : "bg-slate-500"}`} />
                   {user?.name || "Você"} (Sua Câmera)
                 </span>
               </div>
@@ -465,31 +554,40 @@ export default function RoomPage({
               <button
                 onClick={handleToggleMic}
                 title={isMuted ? "Ativar Microfone" : "Mutar Microfone"}
-                className={`p-2.5 rounded-xl transition cursor-pointer ${
-                  isMuted ? "bg-red-500/20 text-red-400 border border-red-500/30" : "bg-white/5 hover:bg-white/10 text-white"
+                className={`p-2.5 rounded-xl transition cursor-pointer flex items-center gap-1.5 text-xs font-bold ${
+                  isMuted
+                    ? "bg-red-500/20 text-red-400 border border-red-500/30"
+                    : "bg-emerald-600 text-white shadow-md glow-success"
                 }`}
               >
                 {isMuted ? <MicOff className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
+                <span className="text-[10px]">{isMuted ? "Mutado" : "Mic Ativo"}</span>
               </button>
 
               <button
                 onClick={handleToggleCamera}
                 title={isCameraOff ? "Ativar Câmera" : "Desativar Câmera"}
-                className={`p-2.5 rounded-xl transition cursor-pointer ${
-                  isCameraOff ? "bg-red-500/20 text-red-400 border border-red-500/30" : "bg-white/5 hover:bg-white/10 text-white"
+                className={`p-2.5 rounded-xl transition cursor-pointer flex items-center gap-1.5 text-xs font-bold ${
+                  isCameraOff
+                    ? "bg-red-500/20 text-red-400 border border-red-500/30"
+                    : "bg-emerald-600 text-white shadow-md glow-success"
                 }`}
               >
                 {isCameraOff ? <VideoOff className="w-4 h-4" /> : <Video className="w-4 h-4" />}
+                <span className="text-[10px]">{isCameraOff ? "Câmera Off" : "Câmera On"}</span>
               </button>
 
               <button
                 onClick={handleToggleScreenShare}
                 title={isScreenSharing ? "Parar Compartilhamento" : "Compartilhar Tela"}
-                className={`p-2.5 rounded-xl transition cursor-pointer ${
-                  isScreenSharing ? "bg-emerald-600 text-white shadow-lg glow-success" : "bg-indigo-600/30 hover:bg-indigo-600 text-indigo-300 hover:text-white"
+                className={`p-2.5 rounded-xl transition cursor-pointer flex items-center gap-1.5 text-xs font-bold ${
+                  isScreenSharing
+                    ? "bg-indigo-600 text-white shadow-lg glow-primary"
+                    : "bg-white/5 hover:bg-white/10 text-slate-300"
                 }`}
               >
                 <Monitor className="w-4 h-4" />
+                <span className="text-[10px]">{isScreenSharing ? "Tela Ativa" : "Compartilhar"}</span>
               </button>
             </div>
 
@@ -600,7 +698,18 @@ export default function RoomPage({
               </div>
               <div className="flex-1 bg-black/60 rounded-xl p-3 text-emerald-400 overflow-y-auto space-y-1 border border-white/5 shadow-inner">
                 {terminalOutput.map((out, idx) => (
-                  <p key={idx} className={out.startsWith("$") ? "text-indigo-300 font-bold" : out.startsWith("[LiveKit]") ? "text-amber-400" : "text-emerald-400"}>
+                  <p
+                    key={idx}
+                    className={
+                      out.startsWith("$")
+                        ? "text-indigo-300 font-bold"
+                        : out.startsWith("[LiveKit]")
+                        ? "text-amber-400"
+                        : out.startsWith("[Vídeo]") || out.startsWith("[Áudio]")
+                        ? "text-cyan-400"
+                        : "text-emerald-400"
+                    }
+                  >
                     {out}
                   </p>
                 ))}
