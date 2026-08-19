@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Zap, Mail, Lock, Eye, EyeOff, ArrowRight, CheckCircle2, Code, Sparkles } from "lucide-react";
+import { Zap, Mail, Lock, Eye, EyeOff, ArrowRight, CheckCircle2, Code, Sparkles, AlertCircle } from "lucide-react";
 import { ParticleBackground } from "@/components/landing/ParticleBackground";
 import { api } from "@/lib/api";
 import { useAuthStore } from "@/stores/use-auth-store";
@@ -29,15 +29,25 @@ export default function LoginPage() {
     e.preventDefault();
     setErrorMessage("");
 
-    if (!email || !password) {
-      setErrorMessage("Por favor, preencha todos os campos.");
+    if (!email.trim() || !password.trim()) {
+      setErrorMessage("Por favor, preencha o e-mail e a senha.");
+      return;
+    }
+
+    if (!email.includes("@") || !email.includes(".")) {
+      setErrorMessage("Por favor, insira um e-mail válido (exemplo: usuario@dominio.com).");
+      return;
+    }
+
+    if (password.length < 6) {
+      setErrorMessage("A senha deve ter pelo menos 6 caracteres.");
       return;
     }
 
     setIsLoading(true);
 
     try {
-      const res = await api.auth.login(email, password);
+      const res = await api.auth.login(email.trim(), password);
       setAuth(res.user, res.token);
       if (res.user.role === "mentor") {
         router.push("/mentor/dashboard");
@@ -45,7 +55,7 @@ export default function LoginPage() {
         router.push("/dashboard");
       }
     } catch (err: any) {
-      setErrorMessage(err.message || "E-mail ou senha incorretos.");
+      setErrorMessage(err.message || "Credenciais inválidas. Verifique seu e-mail e senha.");
     } finally {
       setIsLoading(false);
     }
@@ -173,8 +183,9 @@ export default function LoginPage() {
 
             {/* Error Feedback Alert */}
             {errorMessage && (
-              <div className="p-3 rounded-xl bg-red-500/10 border border-red-500/30 text-red-400 text-xs font-medium">
-                {errorMessage}
+              <div className="p-3.5 rounded-xl bg-red-500/10 border border-red-500/30 text-red-400 text-xs font-medium flex items-center gap-2.5 animate-fade-in shadow-lg">
+                <AlertCircle className="w-4 h-4 shrink-0 text-red-400" />
+                <span>{errorMessage}</span>
               </div>
             )}
 

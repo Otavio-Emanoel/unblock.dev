@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Zap, Mail, Lock, Eye, EyeOff, User, ArrowRight, ShieldCheck, Code2 } from "lucide-react";
+import { Zap, Mail, Lock, Eye, EyeOff, User, ArrowRight, ShieldCheck, Code2, AlertCircle } from "lucide-react";
 import { ParticleBackground } from "@/components/landing/ParticleBackground";
 import { api } from "@/lib/api";
 import { useAuthStore } from "@/stores/use-auth-store";
@@ -31,8 +31,18 @@ export default function RegisterPage() {
     e.preventDefault();
     setErrorMessage("");
 
-    if (!name || !email || !password) {
-      setErrorMessage("Por favor, preencha todos os campos obrigatórios.");
+    if (name.trim().length < 2) {
+      setErrorMessage("O nome deve conter pelo menos 2 caracteres.");
+      return;
+    }
+
+    if (!email.includes("@") || !email.includes(".")) {
+      setErrorMessage("Por favor, informe um e-mail válido.");
+      return;
+    }
+
+    if (password.length < 6) {
+      setErrorMessage("A senha deve conter no mínimo 6 caracteres.");
       return;
     }
 
@@ -40,8 +50,8 @@ export default function RegisterPage() {
 
     try {
       const res = await api.auth.register({
-        name,
-        email,
+        name: name.trim(),
+        email: email.trim(),
         password,
         role: role === "mentor" ? "mentor" : "client",
         bio: role === "mentor" ? "Mentor Especialista em Pair Programming" : undefined,
@@ -206,8 +216,9 @@ export default function RegisterPage() {
 
             {/* Error Alert */}
             {errorMessage && (
-              <div className="p-3 rounded-xl bg-red-500/10 border border-red-500/30 text-red-400 text-xs font-medium">
-                {errorMessage}
+              <div className="p-3.5 rounded-xl bg-red-500/10 border border-red-500/30 text-red-400 text-xs font-medium flex items-center gap-2.5 animate-fade-in shadow-lg">
+                <AlertCircle className="w-4 h-4 shrink-0 text-red-400" />
+                <span>{errorMessage}</span>
               </div>
             )}
 

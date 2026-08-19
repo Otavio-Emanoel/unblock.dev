@@ -24,18 +24,31 @@ export async function apiFetch<T = any>(
     headers["Authorization"] = `Bearer ${token}`;
   }
 
-  const response = await fetch(`${API_BASE}${path}`, {
-    ...options,
-    headers,
-  });
+  let response: Response;
+  try {
+    response = await fetch(`${API_BASE}${path}`, {
+      ...options,
+      headers,
+    });
+  } catch (err: any) {
+    throw new Error(
+      `Não foi possível conectar ao backend (${API_BASE}). Verifique sua conexão ou se o servidor está ativo.`
+    );
+  }
 
   const json: APIResponse<T> = await response.json().catch(() => ({
     success: false,
-    error: "Erro na resposta do servidor",
+    error: "Resposta do servidor com formato inválido",
   }));
 
   if (!response.ok || !json.success) {
-    throw new Error(json.error || json.message || "Erro na requisição");
+    let errMsg = json.error || json.message || "Erro na requisição";
+    if (response.status === 401 && path.includes("/login")) {
+      errMsg = "E-mail ou senha incorretos. Verifique suas credenciais.";
+    } else if (response.status === 401) {
+      errMsg = "Sessão expirada. Por favor, faça login novamente.";
+    }
+    throw new Error(errMsg);
   }
 
   return json.data as T;
