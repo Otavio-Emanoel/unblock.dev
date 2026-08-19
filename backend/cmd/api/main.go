@@ -88,7 +88,8 @@ func main() {
 
 	r.Use(chiMiddleware.Logger)
 	r.Use(chiMiddleware.Recoverer)
-	r.Use(middleware.CORSMiddleware())
+
+
 
 	// Healthcheck
 	r.Get("/health", func(w http.ResponseWriter, r *http.Request) {
@@ -133,7 +134,7 @@ func main() {
 	// 8. HTTP Server Execution & Graceful Shutdown
 	srv := &http.Server{
 		Addr:         fmt.Sprintf(":%s", cfg.Port),
-		Handler:      r,
+		Handler:      middleware.CORSMiddleware()(r),
 		ReadTimeout:  15 * time.Second,
 		WriteTimeout: 15 * time.Second,
 		IdleTimeout:  60 * time.Second,
