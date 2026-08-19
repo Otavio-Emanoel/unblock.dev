@@ -41,20 +41,21 @@ func NewSessionHandler(
 
 func (h *SessionHandler) GetSession(w http.ResponseWriter, r *http.Request) {
 	idHex := chi.URLParam(r, "id")
-	oid, err := bson.ObjectIDFromHex(idHex)
-	if err != nil {
-		response.Error(w, http.StatusBadRequest, "ID de sessão inválido")
-		return
-	}
+	var session *domain.Session
 
-	session, err := h.sessionRepo.GetByID(r.Context(), oid)
-	if err != nil || session == nil {
-		// Fallback: check if the param is the request ID
-		session, err = h.sessionRepo.GetByRequestID(r.Context(), oid)
-		if err != nil || session == nil {
-			response.Error(w, http.StatusNotFound, "Sessão não encontrada")
-			return
+	oid, err := bson.ObjectIDFromHex(idHex)
+	if err == nil {
+		session, _ = h.sessionRepo.GetByID(r.Context(), oid)
+		if session == nil {
+			session, _ = h.sessionRepo.GetByRequestID(r.Context(), oid)
 		}
+	}
+	if session == nil {
+		session, _ = h.sessionRepo.GetByRoomName(r.Context(), idHex)
+	}
+	if session == nil {
+		response.Error(w, http.StatusNotFound, "Sessão não encontrada")
+		return
 	}
 
 	user := middleware.GetUserFromContext(r.Context())
@@ -168,11 +169,6 @@ type SaveCodeDTO struct {
 
 func (h *SessionHandler) SaveCode(w http.ResponseWriter, r *http.Request) {
 	idHex := chi.URLParam(r, "id")
-	oid, err := bson.ObjectIDFromHex(idHex)
-	if err != nil {
-		response.Error(w, http.StatusBadRequest, "ID de sessão inválido")
-		return
-	}
 
 	var dto SaveCodeDTO
 	if err := json.NewDecoder(r.Body).Decode(&dto); err != nil {
@@ -180,9 +176,15 @@ func (h *SessionHandler) SaveCode(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := h.sessionRepo.SaveCodeSnippet(r.Context(), oid, dto.Code); err != nil {
-		response.Error(w, http.StatusInternalServerError, "Falha ao salvar snippet de código")
-		return
+	oid, err := bson.ObjectIDFromHex(idHex)
+	if err == nil {
+		_ = h.sessionRepo.SaveCodeSnippet(r.Context(), oid, dto.Code)
+	} else {
+		// Fallback to room name
+		sess, _ := h.sessionRepo.GetByRoomName(r.Context(), idHex)
+		if sess != nil {
+			_ = h.sessionRepo.SaveCodeSnippet(r.Context(), sess.ID, dto.Code)
+		}
 	}
 
 	response.Message(w, http.StatusOK, "Código salvo com sucesso")

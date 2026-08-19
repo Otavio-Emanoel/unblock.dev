@@ -121,8 +121,9 @@ export default function RoomPage({
   const [remoteHasVideo, setRemoteHasVideo] = useState(false);
   const [remoteHasAudio, setRemoteHasAudio] = useState(false);
 
-  // Multi-File Workspace State
+  // Multi-File Workspace State & Ref
   const [files, setFiles] = useState<WorkspaceFile[]>(DEFAULT_FILES);
+  const filesRef = useRef<WorkspaceFile[]>(DEFAULT_FILES);
   const [activeFileId, setActiveFileId] = useState<string>("f1");
   const [newFileName, setNewFileName] = useState("");
   const [showNewFileInput, setShowNewFileInput] = useState(false);
@@ -147,7 +148,7 @@ export default function RoomPage({
   // WebSocket Hook for Room
   const { sendMessage, subscribe } = useWebSocket(id);
 
-  const activeFile = files.find((f) => f.id === activeFileId) || files[0];
+  const activeFile = files.find((f) => f.id === activeFileId) || files[0] || DEFAULT_FILES[0];
 
   // 1. Fetch Session Data & Verify Access
   useEffect(() => {
@@ -156,17 +157,22 @@ export default function RoomPage({
         const s = await api.sessions.get(id);
         setSession(s);
         const snippet = s.saved_code_snippet || s.code_snippet;
-        if (snippet) {
+        if (snippet && typeof snippet === "string" && snippet.trim().length > 0) {
           try {
             const parsed = JSON.parse(snippet);
-            if (Array.isArray(parsed) && parsed.length > 0) {
+            if (Array.isArray(parsed) && parsed.length > 0 && parsed[0].content !== undefined) {
               setFiles(parsed);
+              filesRef.current = parsed;
               setActiveFileId(parsed[0].id);
             } else {
-              setFiles((prev) => [{ ...prev[0], content: snippet }, ...prev.slice(1)]);
+              const fallback = [{ ...DEFAULT_FILES[0], content: snippet }, ...DEFAULT_FILES.slice(1)];
+              setFiles(fallback);
+              filesRef.current = fallback;
             }
           } catch {
-            setFiles((prev) => [{ ...prev[0], content: snippet }, ...prev.slice(1)]);
+            const fallback = [{ ...DEFAULT_FILES[0], content: snippet }, ...DEFAULT_FILES.slice(1)];
+            setFiles(fallback);
+            filesRef.current = fallback;
           }
         }
       } catch (err: any) {
@@ -269,14 +275,21 @@ export default function RoomPage({
 
   // 4. Save Code to Backend (Auto-save & Manual)
   const triggerSave = useCallback(
-    async (filesToSave: WorkspaceFile[]) => {
+    async (filesToSave?: WorkspaceFile[]) => {
+      const toSave = filesToSave || filesRef.current;
       setSaveStatus("saving");
       try {
-        const payload = JSON.stringify(filesToSave);
+        const payload = JSON.stringify(toSave);
         const targetId = session?.id || id;
         await api.sessions.saveCode(targetId, payload);
         setSaveStatus("saved");
-        setLastSavedTime(new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" }));
+        setLastSavedTime(
+          new Date().toLocaleTimeString([], {
+            hour: "2-digit",
+            minute: "2-digit",
+            second: "2-digit",
+          })
+        );
       } catch (e) {
         console.warn("Auto-save error", e);
         setSaveStatus("unsaved");
@@ -292,9 +305,11 @@ export default function RoomPage({
       if (msg.code !== undefined && !isLocalEditRef.current) {
         const targetFileId = msg.file_id || activeFileId;
         const newCode = msg.code;
-        setFiles((prev) =>
-          prev.map((f) => (f.id === targetFileId ? { ...f, content: newCode } : f))
-        );
+        setFiles((prev) => {
+          const next = prev.map((f) => (f.id === targetFileId ? { ...f, content: newCode } : f));
+          filesRef.current = next;
+          return next;
+        });
       }
     });
 
@@ -303,7 +318,9 @@ export default function RoomPage({
       if (msg.file && !isLocalEditRef.current) {
         setFiles((prev) => {
           if (prev.some((f) => f.id === msg.file.id)) return prev;
-          return [...prev, msg.file];
+          const next = [...prev, msg.file];
+          filesRef.current = next;
+          return next;
         });
       }
     });
@@ -311,7 +328,11 @@ export default function RoomPage({
     // 5.3 Remote file deleted
     const unsubFileDelete = subscribe("FILE_DELETE", (msg) => {
       if (msg.file_id && !isLocalEditRef.current) {
-        setFiles((prev) => prev.filter((f) => f.id !== msg.file_id));
+        setFiles((prev) => {
+          const next = prev.filter((f) => f.id !== msg.file_id);
+          filesRef.current = next;
+          return next;
+        });
       }
     });
 
@@ -325,7 +346,7 @@ export default function RoomPage({
           return [
             ...prev,
             {
-              id: msg.payload.id || crypto.randomUUID(),
+              id: msg.payload.id || `msg-${Date.now()}-${Math.random()}`,
               sender: msg.payload.sender || "Participante",
               text: msg.payload.text,
               time: msg.payload.time || "Agora",
@@ -368,10 +389,11 @@ export default function RoomPage({
     historyRef.current[activeFileId] = newStack;
     historyIndexRef.current[activeFileId] = newStack.length - 1;
 
-    const updatedFiles = files.map((f) =>
+    const updatedFiles = filesRef.current.map((f) =>
       f.id === activeFileId ? { ...f, content: newCode } : f
     );
     setFiles(updatedFiles);
+    filesRef.current = updatedFiles;
 
     // Broadcast to peer
     sendMessage({
@@ -386,13 +408,13 @@ export default function RoomPage({
       isLocalEditRef.current = false;
     }, 50);
 
-    // Debounced Auto-Save (1.5 seconds after last keystroke)
+    // Debounced Auto-Save (1 second after last keystroke)
     if (autoSaveTimeoutRef.current) {
       clearTimeout(autoSaveTimeoutRef.current);
     }
     autoSaveTimeoutRef.current = setTimeout(() => {
       triggerSave(updatedFiles);
-    }, 1500);
+    }, 1000);
   };
 
   // Undo (Ctrl+Z)
@@ -402,10 +424,11 @@ export default function RoomPage({
     if (stack && currentIndex !== undefined && currentIndex > 0) {
       const prevCode = stack[currentIndex - 1];
       historyIndexRef.current[activeFileId] = currentIndex - 1;
-      const updatedFiles = files.map((f) =>
+      const updatedFiles = filesRef.current.map((f) =>
         f.id === activeFileId ? { ...f, content: prevCode } : f
       );
       setFiles(updatedFiles);
+      filesRef.current = updatedFiles;
       sendMessage({
         type: "CODE_CHANGE",
         session_id: id,
@@ -413,8 +436,9 @@ export default function RoomPage({
         file_id: activeFileId,
         code: prevCode,
       });
+      triggerSave(updatedFiles);
     }
-  }, [activeFileId, files, id, sendMessage]);
+  }, [activeFileId, id, sendMessage, triggerSave]);
 
   // Redo (Ctrl+Y / Ctrl+Shift+Z)
   const handleRedo = useCallback(() => {
@@ -423,10 +447,11 @@ export default function RoomPage({
     if (stack && currentIndex !== undefined && currentIndex < stack.length - 1) {
       const nextCode = stack[currentIndex + 1];
       historyIndexRef.current[activeFileId] = currentIndex + 1;
-      const updatedFiles = files.map((f) =>
+      const updatedFiles = filesRef.current.map((f) =>
         f.id === activeFileId ? { ...f, content: nextCode } : f
       );
       setFiles(updatedFiles);
+      filesRef.current = updatedFiles;
       sendMessage({
         type: "CODE_CHANGE",
         session_id: id,
@@ -434,15 +459,16 @@ export default function RoomPage({
         file_id: activeFileId,
         code: nextCode,
       });
+      triggerSave(updatedFiles);
     }
-  }, [activeFileId, files, id, sendMessage]);
+  }, [activeFileId, id, sendMessage, triggerSave]);
 
   // Global Keyboard Shortcuts (Ctrl+S, Ctrl+Z, Ctrl+Y)
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "s") {
         e.preventDefault();
-        triggerSave(files);
+        triggerSave(filesRef.current);
       } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "z" && !e.shiftKey) {
         // Undo
         handleUndo();
@@ -458,7 +484,7 @@ export default function RoomPage({
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [files, triggerSave, handleUndo, handleRedo]);
+  }, [triggerSave, handleUndo, handleRedo]);
 
   // Add new file to workspace
   const handleCreateFile = (e: React.FormEvent) => {
@@ -474,8 +500,9 @@ export default function RoomPage({
       content: `// Arquivo: ${name}\n\n`,
     };
 
-    const updated = [...files, newFile];
+    const updated = [...filesRef.current, newFile];
     setFiles(updated);
+    filesRef.current = updated;
     setActiveFileId(newFile.id);
     setNewFileName("");
     setShowNewFileInput(false);
@@ -499,8 +526,9 @@ export default function RoomPage({
     }
     if (!confirm("Deseja realmente excluir este arquivo?")) return;
 
-    const updated = files.filter((f) => f.id !== fileId);
+    const updated = filesRef.current.filter((f) => f.id !== fileId);
     setFiles(updated);
+    filesRef.current = updated;
     if (activeFileId === fileId) {
       setActiveFileId(updated[0].id);
     }
@@ -591,7 +619,7 @@ export default function RoomPage({
 
     setIsEnding(true);
     try {
-      await triggerSave(files);
+      await triggerSave(filesRef.current);
       await api.sessions.end(id);
       router.push("/dashboard");
     } catch (err: any) {
@@ -979,7 +1007,7 @@ export default function RoomPage({
             {/* Collaborative Code Editor Input Area */}
             <div className="flex-1 p-4 bg-[#0b0f19] text-slate-300 font-mono text-sm leading-relaxed overflow-hidden relative flex flex-col">
               <textarea
-                value={activeFile.content}
+                value={activeFile?.content || ""}
                 onChange={(e) => handleCodeChange(e.target.value)}
                 placeholder="// Escreva ou cole o código aqui..."
                 className="w-full flex-1 bg-transparent text-emerald-400 font-mono text-xs focus:outline-none resize-none leading-relaxed selection:bg-indigo-600 selection:text-white"
@@ -996,7 +1024,7 @@ export default function RoomPage({
                 </span>
                 <span className="text-slate-700">|</span>
                 <span className="text-slate-400 font-sans text-[11px]">
-                  Arquivo ativo: <strong className="text-white font-mono">{activeFile.name}</strong>
+                  Arquivo ativo: <strong className="text-white font-mono">{activeFile?.name || "main.go"}</strong>
                 </span>
               </div>
 
