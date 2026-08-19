@@ -48,7 +48,27 @@ curl -i http://localhost:8080/health
 
 Faremos o cadastro de 2 contas: um **Cliente (Dev)** e um **Mentor**.
 
-#### 2.1. Criar Conta do Cliente
+#### 2.0. Teste de Validações de Entrada (Esperado: 400 Bad Request)
+```bash
+# Payload vazio (sem dados)
+curl -i -X POST http://localhost:8080/api/auth/register \
+  -H "Content-Type: application/json" \
+  -d '{}'
+
+# E-mail inválido e senha curta
+curl -i -X POST http://localhost:8080/api/auth/register \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "Dev",
+    "email": "email_invalido",
+    "password": "123"
+  }'
+```
+- **Status Esperado:** `400 Bad Request` com a mensagem descritiva do erro (ex: `"name is required"`, `"invalid email format"`, `"password must be at least 6 characters long"`).
+
+---
+
+#### 2.1. Criar Conta do Cliente Válida
 ```bash
 curl -i -X POST http://localhost:8080/api/auth/register \
   -H "Content-Type: application/json" \
@@ -63,7 +83,9 @@ curl -i -X POST http://localhost:8080/api/auth/register \
 - **Status Esperado:** `201 Created`
 - **Guarde o Token do Cliente e o ID do Cliente retornados no JSON!**
 
-#### 2.2. Criar Conta do Mentor
+---
+
+#### 2.2. Criar Conta do Mentor Válida
 ```bash
 curl -i -X POST http://localhost:8080/api/auth/register \
   -H "Content-Type: application/json" \
@@ -166,13 +188,30 @@ curl -i -X POST http://localhost:8080/api/requests \
 
 ---
 
-### 7. Listagem de Chamados Abertos (Mentor)
+### 7. Listagem de Chamados Abertos & Meus Chamados (RBAC)
 
-O mentor visualiza os chamados disponíveis na fila.
+#### 7.1. Listagem de Chamados na Fila (Mentores vs Clientes)
+- **Quando chamado por um Mentor:** Retorna **todos** os chamados com status `OPEN` da plataforma (opcionalmente filtrados por `?stack=Go`).
+- **Quando chamado por um Cliente:** O backend filtra automaticamente permitindo que o cliente veja **apenas os seus próprios chamados abertos**, impedindo o vazamento de chamados de outros clientes.
 
 ```bash
+# Como Mentor (visualiza todos os chamados abertos):
 curl -i "http://localhost:8080/api/requests/open?stack=Go" \
   -H "Authorization: Bearer <MENTOR_TOKEN>"
+
+# Como Cliente (visualiza somente seus próprios chamados abertos):
+curl -i http://localhost:8080/api/requests/open \
+  -H "Authorization: Bearer <CLIENT_TOKEN>"
+```
+
+- **Status Esperado:** `200 OK`
+
+#### 7.2. Histórico de Todos os Meus Chamados (Cliente)
+Retorna todos os chamados do cliente autenticado (abertos, aceitos, concluídos ou cancelados).
+
+```bash
+curl -i http://localhost:8080/api/requests/my \
+  -H "Authorization: Bearer <CLIENT_TOKEN>"
 ```
 
 - **Status Esperado:** `200 OK`

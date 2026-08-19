@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { DashboardHeader } from "@/components/shared/DashboardHeader";
 import { Zap, Send } from "lucide-react";
+import { api } from "@/lib/api";
 
 export default function RequestSOSPage() {
   const router = useRouter();
@@ -12,14 +13,27 @@ export default function RequestSOSPage() {
   const [stack, setStack] = useState("");
   const [description, setDescription] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [errorMessage, setErrorMessage] = useState("");
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setErrorMessage("");
     setIsSubmitting(true);
-    setTimeout(() => {
+
+    try {
+      const stackArray = stack.split(",").map((s) => s.trim()).filter(Boolean);
+      await api.requests.create({
+        title,
+        description,
+        stack: stackArray.length > 0 ? stackArray : ["General"],
+        max_minute_rate_cents: 400,
+      });
+      router.push("/dashboard");
+    } catch (err: any) {
+      setErrorMessage(err.message || "Erro ao criar chamado SOS.");
+    } finally {
       setIsSubmitting(false);
-      router.push("/room/sos-8941");
-    }, 800);
+    }
   };
 
   return (
@@ -40,6 +54,12 @@ export default function RequestSOSPage() {
         </div>
 
         <form onSubmit={handleSubmit} className="glass-panel p-8 rounded-3xl border border-white/10 space-y-6 shadow-2xl">
+          {errorMessage && (
+            <div className="p-3.5 rounded-xl bg-red-500/10 border border-red-500/30 text-red-400 text-xs font-medium">
+              {errorMessage}
+            </div>
+          )}
+
           <div className="space-y-1.5">
             <label className="block text-xs font-semibold text-slate-300 font-mono">
               Título do Problema / Erro

@@ -1,12 +1,64 @@
-import Link from "next/link";
-import { Mic, Video, Monitor, PhoneOff, Terminal as TerminalIcon, Code } from "lucide-react";
+"use client";
 
-export default async function RoomPage({
+import { use, useEffect, useState } from "react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { Mic, Video, Monitor, PhoneOff, Terminal as TerminalIcon, Code } from "lucide-react";
+import { api } from "@/lib/api";
+import { useAuthStore } from "@/stores/use-auth-store";
+
+export default function RoomPage({
   params,
 }: {
   params: Promise<{ id: string }>;
 }) {
-  const { id } = await params;
+  const { id } = use(params);
+  const router = useRouter();
+  const user = useAuthStore((s) => s.user);
+
+  const [session, setSession] = useState<any>(null);
+  const [balanceCents, setBalanceCents] = useState<number>(user?.wallet?.balance_cents || 0);
+  const [isEnding, setIsEnding] = useState(false);
+  const [savedCode, setSavedCode] = useState<string>(
+    `package main\n\nimport "fmt"\nimport "sync"\n\nfunc main() {\n\t// SOS Pair Programming Session\n\tfmt.Println("Corrigindo bug ao vivo com mentor!")\n}`
+  );
+
+  useEffect(() => {
+    const fetchSession = async () => {
+      try {
+        const s = await api.sessions.get(id);
+        setSession(s);
+      } catch (err) {
+        console.error("Error fetching session", err);
+      }
+      try {
+        const bal = await api.wallet.getBalance();
+        setBalanceCents(bal.balance_cents);
+      } catch (err) {
+        console.error("Error fetching balance", err);
+      }
+    };
+
+    fetchSession();
+  }, [id]);
+
+  const handleEndSession = async () => {
+    setIsEnding(true);
+    try {
+      // Save code snapshot first
+      await api.sessions.saveCode(id, savedCode).catch(() => {});
+      // End session settlement
+      await api.sessions.end(id);
+      router.push("/dashboard");
+    } catch (err: any) {
+      alert(err.message || "Erro ao encerrar sessão.");
+      router.push("/dashboard");
+    } finally {
+      setIsEnding(false);
+    }
+  };
+
+  const balanceBrl = (balanceCents / 100).toFixed(2);
 
   return (
     <div className="h-screen bg-[#090d16] text-white flex flex-col overflow-hidden font-mono">
@@ -27,17 +79,18 @@ export default async function RoomPage({
         <div className="flex items-center gap-4">
           <div className="glass-pill px-4 py-1.5 rounded-xl border border-indigo-500/30 flex items-center gap-3">
             <span className="text-xs text-slate-400 uppercase tracking-wider font-semibold">Saldo</span>
-            <span className="text-sm font-bold text-emerald-400 font-mono">R$ 45,00</span>
-            <span className="text-xs text-slate-400"> (~18 min)</span>
+            <span className="text-sm font-bold text-emerald-400 font-mono">R$ {balanceBrl}</span>
+            <span className="text-xs text-slate-400"> (~{Math.floor(balanceCents / 300)} min)</span>
           </div>
 
-          <Link
-            href="/dashboard"
-            className="flex items-center gap-2 px-3 py-1.5 bg-[#ff4757] hover:bg-[#ff4757]/90 text-white font-semibold rounded-lg text-xs transition"
+          <button
+            onClick={handleEndSession}
+            disabled={isEnding}
+            className="flex items-center gap-2 px-3 py-1.5 bg-[#ff4757] hover:bg-[#ff4757]/90 text-white font-semibold rounded-lg text-xs transition disabled:opacity-50"
           >
             <PhoneOff className="w-3.5 h-3.5" />
-            Encerrar Sessão
-          </Link>
+            {isEnding ? "Encerrando..." : "Encerrar Sessão"}
+          </button>
         </div>
       </header>
 
@@ -49,10 +102,10 @@ export default async function RoomPage({
           <div className="grid grid-rows-2 gap-2 h-64">
             <div className="relative bg-slate-900/90 rounded-xl overflow-hidden border border-white/10 flex items-center justify-center">
               <div className="w-12 h-12 rounded-full bg-indigo-600/30 border border-indigo-500 text-indigo-300 flex items-center justify-center font-bold text-lg">
-                ME
+                MEN
               </div>
               <span className="absolute bottom-2 left-2 text-xs bg-black/60 px-2 py-0.5 rounded text-slate-300 font-mono">
-                Mentor (Alex S.)
+                Mentor Senior
               </span>
             </div>
             <div className="relative bg-slate-900/90 rounded-xl overflow-hidden border border-white/10 flex items-center justify-center">
@@ -60,7 +113,7 @@ export default async function RoomPage({
                 DEV
               </div>
               <span className="absolute bottom-2 left-2 text-xs bg-black/60 px-2 py-0.5 rounded text-slate-300 font-mono">
-                Você (Cliente)
+                {user?.name || "Você (Cliente)"}
               </span>
             </div>
           </div>
@@ -85,7 +138,7 @@ export default async function RoomPage({
             </div>
             <div className="flex-1 overflow-y-auto space-y-2 text-xs font-sans">
               <div className="bg-slate-800/60 p-2 rounded-lg text-slate-300">
-                <span className="font-bold text-indigo-400">Alex S.:</span> Qual o erro ao subir o container?
+                <span className="font-bold text-indigo-400">Mentor:</span> Olá! Em que posso ajudar com a solução do bug?
               </div>
             </div>
             <input
@@ -106,29 +159,17 @@ export default async function RoomPage({
             </div>
             <div className="flex items-center gap-2">
               <span className="w-2 h-2 rounded-full bg-indigo-500" />
-              <span className="text-slate-400">Cursores ativos: Alex (Mentor), Você</span>
+              <span className="text-slate-400">Cursores ativos: Mentor, {user?.name || "Você"}</span>
             </div>
           </div>
 
-          {/* Monaco Editor Container Mockup */}
+          {/* Monaco Code Editor Input */}
           <div className="flex-1 p-4 bg-[#0b0f19] text-slate-300 font-mono text-sm leading-relaxed overflow-y-auto space-y-1">
-            <p><span className="text-purple-400">package</span> main</p>
-            <p></p>
-            <p><span className="text-purple-400">import</span> (</p>
-            <p className="pl-4"><span className="text-emerald-400">&quot;fmt&quot;</span></p>
-            <p className="pl-4"><span className="text-emerald-400">&quot;sync&quot;</span></p>
-            <p>)</p>
-            <p></p>
-            <p><span className="text-purple-400">func</span> <span className="text-blue-400">main</span>() &#123;</p>
-            <p className="pl-4 text-slate-500 font-mono">&#47;&#47; TODO: Resolver deadlock de goroutines abaixo</p>
-            <p className="pl-4"><span className="text-purple-400">var</span> wg sync.WaitGroup</p>
-            <p className="pl-4">wg.<span className="text-blue-400">Add</span>(<span className="text-orange-400">1</span>)</p>
-            <p className="pl-4"><span className="text-purple-400">go</span> <span className="text-purple-400">func</span>() &#123;</p>
-            <p className="pl-8">fmt.<span className="text-blue-400">Println</span>(<span className="text-emerald-400">&quot;[SOS] Corrigindo bug ao vivo com mentor!&quot;</span>)</p>
-            <p className="pl-8">wg.<span className="text-blue-400">Done</span>()</p>
-            <p className="pl-4">&#125;()</p>
-            <p className="pl-4">wg.<span className="text-blue-400">Wait</span>()</p>
-            <p>&#125;</p>
+            <textarea
+              value={savedCode}
+              onChange={(e) => setSavedCode(e.target.value)}
+              className="w-full h-full bg-transparent text-emerald-400 font-mono text-xs focus:outline-none resize-none leading-relaxed"
+            />
           </div>
 
           {/* Session Terminal / Logs Output */}

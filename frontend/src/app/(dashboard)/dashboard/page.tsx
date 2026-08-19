@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
   Zap,
   Wallet,
@@ -14,86 +15,60 @@ import {
   ExternalLink,
 } from "lucide-react";
 import { DashboardHeader } from "@/components/shared/DashboardHeader";
-
-// Mock Data for Recent SOS Tickets
-const RECENT_TICKETS = [
-  {
-    id: "sos-8492",
-    date: "Hoje, 15:42",
-    title: "Deadlock em Goroutines com Redis Lock",
-    stack: ["Go", "Redis"],
-    mentor: "Alex Santos",
-    mentorRole: "Go & K8s Expert",
-    duration: "18 min",
-    cost: "R$ 45,00",
-    status: "Resolvido",
-  },
-  {
-    id: "sos-8310",
-    date: "Ontem, 20:15",
-    title: "Hydration error em Server Components no Next.js 15",
-    stack: ["Next.js", "React"],
-    mentor: "Marina K.",
-    mentorRole: "Frontend Architect",
-    duration: "12 min",
-    cost: "R$ 26,40",
-    status: "Resolvido",
-  },
-  {
-    id: "sos-8102",
-    date: "04 de Ago",
-    title: "Memory leak em WebSocket Hub no Go Chi Router",
-    stack: ["Go", "WebSockets"],
-    mentor: "Carlos R.",
-    mentorRole: "Backend Principal",
-    duration: "22 min",
-    cost: "R$ 55,00",
-    status: "Resolvido",
-  },
-];
-
-// Mock Data for Mentor Open Queue Calls
-const MENTOR_LIVE_QUEUE = [
-  {
-    id: "sos-8940",
-    timeAgo: "Há 45 seg",
-    title: "Concorrência em Goroutines no Worker Pool com Context Cancelation",
-    description: "Estou enfrentando leak de goroutines quando a conexão do cliente cai antes do flush do Redis.",
-    client: "Lucas Mendes",
-    stack: ["Go 1.22", "Redis", "Worker Pools"],
-    rateOffer: "R$ 2,80/min",
-    avgEst: "~15 min",
-  },
-  {
-    id: "sos-8938",
-    timeAgo: "Há 2 min",
-    title: "Falha de Ingress NGINX SSL no Kubernetes K3s",
-    description: "Certificado cert-manager não renova em staging devido a regra de Let's Encrypt HTTP-01.",
-    client: "Beatriz Torres",
-    stack: ["Docker", "Kubernetes", "NGINX"],
-    rateOffer: "R$ 3,00/min",
-    avgEst: "~20 min",
-  },
-  {
-    id: "sos-8925",
-    timeAgo: "Há 4 min",
-    title: "Query lenta em PostgreSQL com JOIN triplo e campos JSONB",
-    description: "Explain analyze mostra Seq Scan em tabela com 4M de registros. Preciso otimizar índice GIN.",
-    client: "Fernando Garcia",
-    stack: ["PostgreSQL", "SQL", "Database Tuning"],
-    rateOffer: "R$ 2,60/min",
-    avgEst: "~15 min",
-  },
-];
+import { api } from "@/lib/api";
+import { useAuthStore } from "@/stores/use-auth-store";
 
 export default function UnifiedDashboardPage() {
-  const [role, setRole] = useState<"dev" | "mentor">("dev");
+  const router = useRouter();
+  const user = useAuthStore((s) => s.user);
+
+  const [role, setRole] = useState<"dev" | "mentor">(user?.role === "mentor" ? "mentor" : "dev");
   const [isOnline, setIsOnline] = useState(true);
+  const [balanceCents, setBalanceCents] = useState<number>(user?.wallet?.balance_cents || 0);
+  const [myTickets, setMyTickets] = useState<any[]>([]);
+  const [openQueue, setOpenQueue] = useState<any[]>([]);
+  const [acceptingId, setAcceptingId] = useState<string | null>(null);
+
+  const loadData = async () => {
+    try {
+      const bal = await api.wallet.getBalance();
+      setBalanceCents(bal.balance_cents);
+
+      if (role === "dev") {
+        const reqs = await api.requests.listMy();
+        setMyTickets(reqs || []);
+      } else {
+        const queue = await api.requests.listOpen();
+        setOpenQueue(queue || []);
+      }
+    } catch (err) {
+      console.error("Error loading dashboard data", err);
+    }
+  };
+
+  useEffect(() => {
+    loadData();
+  }, [role]);
+
+  const handleAcceptRequest = async (requestId: string) => {
+    setAcceptingId(requestId);
+    try {
+      const res = await api.requests.accept(requestId);
+      router.push(`/room/${res.session.id}`);
+    } catch (err: any) {
+      alert(err.message || "Erro ao aceitar chamado.");
+      await loadData();
+    } finally {
+      setAcceptingId(null);
+    }
+  };
+
+  const balanceBrl = (balanceCents / 100).toFixed(2);
 
   return (
     <div className="min-h-screen bg-[#090d16] text-white flex flex-col">
       {/* Dedicated App Dashboard Header */}
-      <DashboardHeader role={role} setRole={setRole} balance={50.0} />
+      <DashboardHeader role={role} setRole={setRole} balance={parseFloat(balanceBrl)} />
 
       {/* Main Workspace Body */}
       <main className="flex-1 max-w-7xl w-full mx-auto p-6 md:p-8 space-y-8">
@@ -109,7 +84,7 @@ export default function UnifiedDashboardPage() {
                   <Zap className="w-3.5 h-3.5 fill-current" /> Painel do Desenvolvedor
                 </div>
                 <h1 className="text-2xl md:text-4xl font-extrabold text-white">
-                  Boas-vindas, Otávio! 👋
+                  Boas-vindas, {user?.name || "Dev"}! 👋
                 </h1>
                 <p className="text-slate-300 text-sm max-w-xl">
                   Está travado em algum erro técnico? Dispare um chamado SOS e resolva em minutos em uma sala ao vivo com um mentor sênior.
@@ -140,8 +115,10 @@ export default function UnifiedDashboardPage() {
                   </div>
                 </div>
                 <div className="space-y-1">
-                  <div className="text-3xl font-extrabold text-white font-mono">R$ 50,00</div>
-                  <p className="text-xs text-emerald-400 font-mono">~20 minutos de mentoria ao vivo</p>
+                  <div className="text-3xl font-extrabold text-white font-mono">R$ {balanceBrl}</div>
+                  <p className="text-xs text-emerald-400 font-mono">
+                    ~{Math.floor(balanceCents / 300)} minutos de mentoria ao vivo
+                  </p>
                 </div>
                 <div className="pt-2">
                   <Link
@@ -157,17 +134,18 @@ export default function UnifiedDashboardPage() {
               <div className="glass-card p-6 rounded-3xl border border-white/10 space-y-3">
                 <div className="flex items-center justify-between">
                   <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider font-mono">
-                    Atendimentos Concluídos
+                    Atendimentos Criados
                   </span>
                   <div className="w-9 h-9 rounded-xl bg-indigo-500/20 text-indigo-400 flex items-center justify-center">
                     <History className="w-5 h-5" />
                   </div>
                 </div>
                 <div className="space-y-1">
-                  <div className="text-3xl font-extrabold text-white font-mono">12 Sessões</div>
-                  <p className="text-xs text-slate-400 font-mono">Média de 14 min por chamado</p>
+                  <div className="text-3xl font-extrabold text-white font-mono">
+                    {myTickets.length} Sessões
+                  </div>
+                  <p className="text-xs text-slate-400 font-mono">Histórico completo mantido</p>
                 </div>
-                <p className="text-[11px] text-slate-500">100% dos bugs resolvidos com sucesso</p>
               </div>
 
               {/* Card 3: Status Mentores */}
@@ -184,7 +162,6 @@ export default function UnifiedDashboardPage() {
                   <div className="text-3xl font-extrabold text-white font-mono">34 Online</div>
                   <p className="text-xs text-slate-400 font-mono">Tempo médio de match: &lt; 90s</p>
                 </div>
-                <p className="text-[11px] text-slate-500">Fila reativa via Redis distribuído</p>
               </div>
             </div>
 
@@ -194,10 +171,10 @@ export default function UnifiedDashboardPage() {
                 <div className="space-y-1">
                   <h3 className="text-lg font-bold text-white flex items-center gap-2">
                     <Terminal className="w-5 h-5 text-indigo-400" />
-                    Histórico Recente de Atendimentos SOS
+                    Seus Chamados SOS
                   </h3>
                   <p className="text-xs text-slate-400">
-                    Consulte as sessões de pair programming realizadas e abra a sala de histórico.
+                    Consulte os pedidos criados e acesse as salas de atendimento.
                   </p>
                 </div>
                 <Link
@@ -209,53 +186,57 @@ export default function UnifiedDashboardPage() {
                 </Link>
               </div>
 
-              <div className="space-y-4">
-                {RECENT_TICKETS.map((ticket) => (
-                  <div
-                    key={ticket.id}
-                    className="glass-card p-5 rounded-2xl border border-white/10 hover:border-indigo-500/30 transition flex flex-col md:flex-row md:items-center justify-between gap-4 group"
-                  >
-                    <div className="space-y-2">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <span className="text-[11px] font-mono font-bold text-indigo-400 bg-indigo-500/10 px-2 py-0.5 rounded border border-indigo-500/20">
-                          #{ticket.id}
-                        </span>
-                        <span className="text-xs text-slate-500 font-mono">{ticket.date}</span>
-                        {ticket.stack.map((s) => (
-                          <span
-                            key={s}
-                            className="text-[10px] font-mono bg-white/5 border border-white/10 text-slate-300 px-2 py-0.5 rounded"
-                          >
-                            {s}
+              <div className="space-y-4 font-mono text-xs">
+                {myTickets.length === 0 ? (
+                  <p className="text-slate-500 py-4">Nenhum chamado aberto ainda.</p>
+                ) : (
+                  myTickets.map((ticket) => (
+                    <div
+                      key={ticket.id}
+                      className="glass-card p-5 rounded-2xl border border-white/10 hover:border-indigo-500/30 transition flex flex-col md:flex-row md:items-center justify-between gap-4 group"
+                    >
+                      <div className="space-y-2">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className="text-[11px] font-mono font-bold text-indigo-400 bg-indigo-500/10 px-2 py-0.5 rounded border border-indigo-500/20">
+                            #{ticket.id}
                           </span>
-                        ))}
+                          <span className="text-[10px] uppercase font-bold text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded">
+                            {ticket.status}
+                          </span>
+                          {ticket.stack?.map((s: string) => (
+                            <span
+                              key={s}
+                              className="text-[10px] font-mono bg-white/5 border border-white/10 text-slate-300 px-2 py-0.5 rounded"
+                            >
+                              {s}
+                            </span>
+                          ))}
+                        </div>
+
+                        <h4 className="text-base font-bold text-white group-hover:text-indigo-300 transition font-sans">
+                          {ticket.title}
+                        </h4>
+                        <p className="text-slate-400 text-xs font-sans line-clamp-1">{ticket.description}</p>
                       </div>
 
-                      <h4 className="text-base font-bold text-white group-hover:text-indigo-300 transition">
-                        {ticket.title}
-                      </h4>
+                      <div className="flex items-center justify-between md:justify-end gap-6 pt-3 md:pt-0 border-t md:border-t-0 border-white/10">
+                        <div className="text-right font-mono">
+                          <div className="text-xs font-bold text-white">
+                            Até R$ {(ticket.max_minute_rate_cents / 100).toFixed(2)}/min
+                          </div>
+                        </div>
 
-                      <div className="text-xs text-slate-400 flex items-center gap-3 font-mono">
-                        <span>Mentor: <strong className="text-slate-200">{ticket.mentor}</strong> ({ticket.mentorRole})</span>
+                        <Link
+                          href={`/room/${ticket.id}`}
+                          className="px-4 py-2 bg-white/5 hover:bg-white/10 text-slate-200 border border-white/10 rounded-xl text-xs font-semibold transition flex items-center gap-1.5"
+                        >
+                          <ExternalLink className="w-3.5 h-3.5 text-indigo-400" />
+                          Ver Sala
+                        </Link>
                       </div>
                     </div>
-
-                    <div className="flex items-center justify-between md:justify-end gap-6 pt-3 md:pt-0 border-t md:border-t-0 border-white/10">
-                      <div className="text-right font-mono">
-                        <div className="text-xs font-bold text-white">{ticket.cost}</div>
-                        <div className="text-[10px] text-slate-400">{ticket.duration} de sala</div>
-                      </div>
-
-                      <Link
-                        href={`/room/${ticket.id}`}
-                        className="px-4 py-2 bg-white/5 hover:bg-white/10 text-slate-200 border border-white/10 rounded-xl text-xs font-semibold transition flex items-center gap-1.5"
-                      >
-                        <ExternalLink className="w-3.5 h-3.5 text-indigo-400" />
-                        Ver Sala
-                      </Link>
-                    </div>
-                  </div>
-                ))}
+                  ))
+                )}
               </div>
             </div>
           </div>
@@ -300,104 +281,82 @@ export default function UnifiedDashboardPage() {
               </div>
             </div>
 
-            {/* Mentor Metrics */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
-              <div className="glass-card p-6 rounded-3xl border border-emerald-500/30 space-y-2 bg-emerald-500/5">
-                <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider font-mono">
-                  Ganhos Acumulados no Mês
-                </span>
-                <div className="text-3xl font-extrabold text-emerald-400 font-mono">R$ 1.840,00</div>
-                <p className="text-xs text-slate-400">38 sessões atendidas com sucesso</p>
-              </div>
-
-              <div className="glass-card p-6 rounded-3xl border border-white/10 space-y-2">
-                <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider font-mono">
-                  Avaliação Média dos Devs
-                </span>
-                <div className="text-3xl font-extrabold text-white font-mono flex items-center gap-2">
-                  4.98 <Star className="w-5 h-5 text-amber-400 fill-amber-400" />
-                </div>
-                <p className="text-xs text-slate-400">100% de satisfação confirmada</p>
-              </div>
-
-              <div className="glass-card p-6 rounded-3xl border border-white/10 space-y-2">
-                <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider font-mono">
-                  Sua Taxa Padrão por Minuto
-                </span>
-                <div className="text-3xl font-extrabold text-indigo-400 font-mono">R$ 2,50/min</div>
-                <p className="text-xs text-slate-400">Configurada na sua carteira de mentor</p>
-              </div>
-            </div>
-
             {/* Live Queue Feed Section */}
             <div className="glass-panel p-6 md:p-8 rounded-3xl border border-white/10 space-y-6">
               <div className="flex items-center justify-between border-b border-white/10 pb-4">
                 <div className="space-y-1">
                   <h3 className="text-lg font-bold text-white flex items-center gap-2">
                     <Radio className="w-5 h-5 text-emerald-400 animate-pulse" />
-                    Chamados Abertos na Fila em Tempo Real ({MENTOR_LIVE_QUEUE.length})
+                    Chamados Abertos na Fila em Tempo Real ({openQueue.length})
                   </h3>
                   <p className="text-xs text-slate-400">
-                    Notificações de chamados reativos via WebSocket. Clique em Aceitar para iniciar a sala colaborativa.
+                    Clique em Aceitar para iniciar a sala colaborativa com trava Redis.
                   </p>
                 </div>
               </div>
 
               <div className="space-y-4">
-                {MENTOR_LIVE_QUEUE.map((item) => (
-                  <div
-                    key={item.id}
-                    className="glass-card p-6 rounded-2xl border border-white/10 hover:border-emerald-500/40 transition space-y-4 group shadow-xl"
-                  >
-                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-white/5 pb-3">
-                      <div className="flex items-center gap-2 font-mono text-xs">
-                        <span className="font-bold text-emerald-400 bg-emerald-500/10 px-2.5 py-1 rounded border border-emerald-500/20">
-                          #{item.id}
-                        </span>
-                        <span className="text-slate-400">• {item.timeAgo}</span>
-                        <span className="text-slate-400">• Cliente: <strong className="text-white">{item.client}</strong></span>
-                      </div>
+                {openQueue.length === 0 ? (
+                  <p className="text-slate-500 py-4 font-mono text-xs">
+                    Nenhum chamado aberto na fila no momento.
+                  </p>
+                ) : (
+                  openQueue.map((item) => (
+                    <div
+                      key={item.id}
+                      className="glass-card p-6 rounded-2xl border border-white/10 hover:border-emerald-500/40 transition space-y-4 group shadow-xl"
+                    >
+                      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-white/5 pb-3">
+                        <div className="flex items-center gap-2 font-mono text-xs">
+                          <span className="font-bold text-emerald-400 bg-emerald-500/10 px-2.5 py-1 rounded border border-emerald-500/20">
+                            #{item.id}
+                          </span>
+                          <span className="text-slate-400">• Cliente: <strong className="text-white">{item.client_name || "Cliente"}</strong></span>
+                        </div>
 
-                      <div className="flex items-center gap-3">
-                        <div className="text-right font-mono">
-                          <span className="text-xs text-slate-400">Oferta: </span>
-                          <span className="text-sm font-extrabold text-emerald-400">{item.rateOffer}</span>
-                          <span className="text-[10px] text-slate-500 block">Duração est.: {item.avgEst}</span>
+                        <div className="flex items-center gap-3">
+                          <div className="text-right font-mono">
+                            <span className="text-xs text-slate-400">Oferta: </span>
+                            <span className="text-sm font-extrabold text-emerald-400">
+                              R$ {(item.max_minute_rate_cents / 100).toFixed(2)}/min
+                            </span>
+                          </div>
                         </div>
                       </div>
-                    </div>
 
-                    <div className="space-y-2">
-                      <h4 className="text-base font-bold text-white group-hover:text-emerald-300 transition">
-                        {item.title}
-                      </h4>
-                      <p className="text-xs text-slate-300 leading-relaxed font-sans">
-                        {item.description}
-                      </p>
-                    </div>
-
-                    <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pt-2">
-                      <div className="flex flex-wrap gap-1.5">
-                        {item.stack.map((st) => (
-                          <span
-                            key={st}
-                            className="text-[11px] font-mono px-2.5 py-0.5 rounded bg-indigo-500/10 border border-indigo-500/20 text-indigo-300 font-semibold"
-                          >
-                            {st}
-                          </span>
-                        ))}
+                      <div className="space-y-2">
+                        <h4 className="text-base font-bold text-white group-hover:text-emerald-300 transition">
+                          {item.title}
+                        </h4>
+                        <p className="text-xs text-slate-300 leading-relaxed font-sans">
+                          {item.description}
+                        </p>
                       </div>
 
-                      <Link
-                        href={`/room/${item.id}`}
-                        className="w-full sm:w-auto px-6 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl text-xs transition shadow-lg glow-success flex items-center justify-center gap-2"
-                      >
-                        <Zap className="w-4 h-4 fill-white/20" />
-                        Aceitar Chamado &amp; Entrar na Sala
-                      </Link>
+                      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pt-2">
+                        <div className="flex flex-wrap gap-1.5">
+                          {item.stack?.map((st: string) => (
+                            <span
+                              key={st}
+                              className="text-[11px] font-mono px-2.5 py-0.5 rounded bg-indigo-500/10 border border-indigo-500/20 text-indigo-300 font-semibold"
+                            >
+                              {st}
+                            </span>
+                          ))}
+                        </div>
+
+                        <button
+                          onClick={() => handleAcceptRequest(item.id)}
+                          disabled={acceptingId === item.id}
+                          className="w-full sm:w-auto px-6 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl text-xs transition shadow-lg glow-success flex items-center justify-center gap-2 disabled:opacity-50"
+                        >
+                          <Zap className="w-4 h-4 fill-white/20" />
+                          {acceptingId === item.id ? "Aceitando chamado..." : "Aceitar Chamado & Entrar na Sala"}
+                        </button>
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  ))
+                )}
               </div>
             </div>
           </div>

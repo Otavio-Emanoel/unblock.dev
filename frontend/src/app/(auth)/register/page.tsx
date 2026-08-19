@@ -5,6 +5,8 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Zap, Mail, Lock, Eye, EyeOff, User, ArrowRight, ShieldCheck, Code2 } from "lucide-react";
 import { ParticleBackground } from "@/components/landing/ParticleBackground";
+import { api } from "@/lib/api";
+import { useAuthStore } from "@/stores/use-auth-store";
 
 function GithubIcon(props: React.SVGProps<SVGSVGElement>) {
   return (
@@ -16,7 +18,8 @@ function GithubIcon(props: React.SVGProps<SVGSVGElement>) {
 
 export default function RegisterPage() {
   const router = useRouter();
-  const [role, setRole] = useState<"dev" | "mentor">("dev");
+  const setAuth = useAuthStore((s) => s.setAuth);
+  const [role, setRole] = useState<"client" | "mentor">("client");
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -24,7 +27,7 @@ export default function RegisterPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMessage("");
 
@@ -35,15 +38,29 @@ export default function RegisterPage() {
 
     setIsLoading(true);
 
-    // Simulação de cadastro
-    setTimeout(() => {
-      setIsLoading(false);
-      if (role === "mentor") {
+    try {
+      const res = await api.auth.register({
+        name,
+        email,
+        password,
+        role: role === "mentor" ? "mentor" : "client",
+        bio: role === "mentor" ? "Mentor Especialista em Pair Programming" : undefined,
+        minute_rate_cents: role === "mentor" ? 350 : undefined,
+        skills: role === "mentor" ? ["Go", "React", "Docker", "SQL"] : undefined,
+      });
+
+      setAuth(res.user, res.token);
+
+      if (res.user.role === "mentor") {
         router.push("/mentor/dashboard");
       } else {
         router.push("/dashboard");
       }
-    }, 800);
+    } catch (err: any) {
+      setErrorMessage(err.message || "Erro ao criar conta.");
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -94,7 +111,7 @@ export default function RegisterPage() {
 
           {/* Role Benefit Cards */}
           <div className="space-y-4">
-            <div className={`glass-card p-5 rounded-2xl border transition ${role === 'dev' ? 'border-indigo-500/60 bg-indigo-950/20' : 'border-white/10'}`}>
+            <div className={`glass-card p-5 rounded-2xl border transition ${role === 'client' ? 'border-indigo-500/60 bg-indigo-950/20' : 'border-white/10'}`}>
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-xl bg-indigo-600/20 text-indigo-400 border border-indigo-500/30 flex items-center justify-center font-bold">
                   <Code2 className="w-5 h-5" />
@@ -140,7 +157,7 @@ export default function RegisterPage() {
               {/* Sliding Pill Indicator */}
               <div
                 className={`absolute top-1 bottom-1 w-[calc(50%-4px)] rounded-xl transition-all duration-300 ease-out shadow-lg ${
-                  role === "dev"
+                  role === "client"
                     ? "left-1 bg-indigo-600 border border-indigo-400/40 glow-primary"
                     : "left-[calc(50%+2px)] bg-emerald-600 border border-emerald-400/40 glow-success"
                 }`}
@@ -148,9 +165,9 @@ export default function RegisterPage() {
 
               <button
                 type="button"
-                onClick={() => setRole("dev")}
+                onClick={() => setRole("client")}
                 className={`relative z-10 flex-1 py-2.5 px-3 rounded-xl text-xs transition-colors duration-300 flex items-center justify-center gap-2 ${
-                  role === "dev" ? "text-white font-bold" : "text-slate-400 hover:text-slate-200"
+                  role === "client" ? "text-white font-bold" : "text-slate-400 hover:text-slate-200"
                 }`}
               >
                 <Code2 className="w-4 h-4" />

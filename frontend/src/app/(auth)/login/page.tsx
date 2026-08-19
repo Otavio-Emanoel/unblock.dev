@@ -5,6 +5,8 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Zap, Mail, Lock, Eye, EyeOff, ArrowRight, CheckCircle2, Code, Sparkles } from "lucide-react";
 import { ParticleBackground } from "@/components/landing/ParticleBackground";
+import { api } from "@/lib/api";
+import { useAuthStore } from "@/stores/use-auth-store";
 
 function GithubIcon(props: React.SVGProps<SVGSVGElement>) {
   return (
@@ -16,13 +18,14 @@ function GithubIcon(props: React.SVGProps<SVGSVGElement>) {
 
 export default function LoginPage() {
   const router = useRouter();
+  const setAuth = useAuthStore((s) => s.setAuth);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMessage("");
 
@@ -33,11 +36,19 @@ export default function LoginPage() {
 
     setIsLoading(true);
 
-    // Simulação de login
-    setTimeout(() => {
+    try {
+      const res = await api.auth.login(email, password);
+      setAuth(res.user, res.token);
+      if (res.user.role === "mentor") {
+        router.push("/mentor/dashboard");
+      } else {
+        router.push("/dashboard");
+      }
+    } catch (err: any) {
+      setErrorMessage(err.message || "E-mail ou senha incorretos.");
+    } finally {
       setIsLoading(false);
-      router.push("/dashboard");
-    }, 800);
+    }
   };
 
   return (
