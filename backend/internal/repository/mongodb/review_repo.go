@@ -36,6 +36,18 @@ func (r *reviewRepo) Create(ctx context.Context, review *domain.Review) error {
 	return nil
 }
 
+func (r *reviewRepo) GetBySessionID(ctx context.Context, sessionID bson.ObjectID) (*domain.Review, error) {
+	var review domain.Review
+	err := r.coll.FindOne(ctx, bson.M{"session_id": sessionID}).Decode(&review)
+	if err != nil {
+		if err == mongo.ErrNoDocuments {
+			return nil, nil
+		}
+		return nil, fmt.Errorf("failed to get review by session_id: %w", err)
+	}
+	return &review, nil
+}
+
 func (r *reviewRepo) ListByMentorID(ctx context.Context, mentorID bson.ObjectID) ([]*domain.Review, error) {
 	opts := options.Find().SetSort(bson.D{{Key: "created_at", Value: -1}})
 

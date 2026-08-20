@@ -19,5 +19,6 @@ type Review struct {
 
 type ReviewRepository interface {
 	Create(ctx context.Context, review *Review) error
+	GetBySessionID(ctx context.Context, sessionID bson.ObjectID) (*Review, error)
 	ListByMentorID(ctx context.Context, mentorID bson.ObjectID) ([]*Review, error)
 }

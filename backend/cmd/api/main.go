@@ -58,6 +58,7 @@ func main() {
 	reqRepo := repoMongo.NewRequestRepo(mongoClient.DB)
 	sessionRepo := repoMongo.NewSessionRepo(mongoClient.DB)
 	txRepo := repoMongo.NewTransactionRepo(mongoClient.DB)
+	reviewRepo := repoMongo.NewReviewRepo(mongoClient.DB)
 
 	balanceCache := repoRedis.NewBalanceCache(redisClient)
 	lockRepo := repoRedis.NewLockRepository(redisClient)
@@ -69,12 +70,14 @@ func main() {
 	matchmakerSvc := service.NewMatchmakerService(reqRepo, sessionRepo, userRepo, lockRepo, pubSubRepo, balanceCache, livekitSvc)
 	walletSvc := service.NewWalletService(userRepo, sessionRepo, txRepo, balanceCache, mongoClient, cfg.PlatformFeePercentage)
 	tickerEngine := service.NewTickerEngine(balanceCache, walletSvc, logger)
+	reviewSvc := service.NewReviewService(reviewRepo, sessionRepo, userRepo)
 
 	// 6. Handlers & Hub
 	authHandler := handler.NewAuthHandler(authSvc)
 	reqHandler := handler.NewRequestHandler(matchmakerSvc, reqRepo)
 	sessionHandler := handler.NewSessionHandler(sessionRepo, walletSvc, tickerEngine, livekitSvc, pubSubRepo)
 	walletHandler := handler.NewWalletHandler(walletSvc, txRepo)
+	reviewHandler := handler.NewReviewHandler(reviewSvc)
 	webhookHandler := handler.NewWebhookHandler(tickerEngine, walletSvc, sessionRepo, logger)
 	wsHub := handler.NewWSHub(pubSubRepo, authSvc, logger)
 
@@ -88,8 +91,6 @@ func main() {
 
 	r.Use(chiMiddleware.Logger)
 	r.Use(chiMiddleware.Recoverer)
-
-
 
 	// Healthcheck
 	r.Get("/health", func(w http.ResponseWriter, r *http.Request) {
@@ -125,6 +126,11 @@ func main() {
 		pr.Post("/api/sessions/{id}/end", sessionHandler.EndSession)
 		pr.Put("/api/sessions/{id}/code", sessionHandler.SaveCode)
 		pr.Post("/api/sessions/{id}/code", sessionHandler.SaveCode)
+
+		// Reviews & Ratings
+		pr.Post("/api/sessions/{id}/review", reviewHandler.CreateReview)
+		pr.Get("/api/sessions/{id}/review", reviewHandler.GetSessionReview)
+		pr.Get("/api/mentors/{id}/reviews", reviewHandler.ListMentorReviews)
 
 		// Wallet
 		pr.Get("/api/wallet/balance", walletHandler.GetBalance)

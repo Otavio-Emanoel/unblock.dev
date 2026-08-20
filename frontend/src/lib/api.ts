@@ -126,4 +126,14 @@ export const api = {
       }),
     listTransactions: () => apiFetch<any[]>("/api/wallet/transactions"),
   },
+
+  reviews: {
+    create: (sessionId: string, rating: number, comment?: string) =>
+      apiFetch<any>(`/api/sessions/${sessionId}/review`, {
+        method: "POST",
+        body: JSON.stringify({ rating, comment }),
+      }),
+    getBySession: (sessionId: string) => apiFetch<any>(`/api/sessions/${sessionId}/review`),
+    listByMentor: (mentorId: string) => apiFetch<any[]>(`/api/mentors/${mentorId}/reviews`),
+  },
 };

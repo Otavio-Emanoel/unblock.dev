@@ -29,6 +29,7 @@ import {
   RotateCw,
   CloudCheck,
   Cloud,
+  Star,
 } from "lucide-react";
 import { Room, RoomEvent, Track } from "livekit-client";
 import { api } from "@/lib/api";
@@ -123,6 +124,13 @@ export default function RoomPage({
   const closeModal = () => {
     setModalConfig((prev) => ({ ...prev, isOpen: false }));
   };
+
+  // Review Rating Modal State (for Developer post-session feedback)
+  const [showReviewModal, setShowReviewModal] = useState(false);
+  const [reviewRating, setReviewRating] = useState(5);
+  const [hoverRating, setHoverRating] = useState(0);
+  const [reviewComment, setReviewComment] = useState("");
+  const [isSubmittingReview, setIsSubmittingReview] = useState(false);
 
   // Auto-Save Status
   const [saveStatus, setSaveStatus] = useState<"saved" | "saving" | "unsaved">("saved");
@@ -376,13 +384,18 @@ export default function RoomPage({
     // 5.5 Remote session ended
     const unsubEnd = subscribe("SESSION_ENDED", (msg) => {
       if (msg.session_id === id || msg.session?.id === id) {
-        showModal({
-          type: "info",
-          title: "Sessão Finalizada",
-          description: "A mentoria ao vivo foi encerrada. O tempo e os valores foram liquidados com sucesso.",
-          confirmText: "Voltar ao Painel",
-          onConfirm: () => router.push("/dashboard"),
-        });
+        const isClient = user?.role === "client" || (!session?.is_mentor && session?.is_client);
+        if (isClient) {
+          setShowReviewModal(true);
+        } else {
+          showModal({
+            type: "info",
+            title: "Sessão Finalizada",
+            description: "A mentoria ao vivo foi encerrada. O tempo e os valores foram liquidados com sucesso.",
+            confirmText: "Voltar ao Painel",
+            onConfirm: () => router.push("/dashboard"),
+          });
+        }
       }
     });
 
@@ -691,7 +704,12 @@ export default function RoomPage({
         try {
           await triggerSave(filesRef.current);
           await api.sessions.end(id);
-          router.push("/dashboard");
+          const isClient = user?.role === "client" || (!session?.is_mentor && session?.is_client);
+          if (isClient) {
+            setShowReviewModal(true);
+          } else {
+            router.push("/dashboard");
+          }
         } catch (err: any) {
           showModal({
             type: "danger",
@@ -705,6 +723,21 @@ export default function RoomPage({
         }
       },
     });
+  };
+
+  // Submit Review / Rating for Mentor
+  const handleSubmitReview = async () => {
+    setIsSubmittingReview(true);
+    try {
+      const targetId = session?.id || id;
+      await api.reviews.create(targetId, reviewRating, reviewComment);
+    } catch (e) {
+      console.warn("Review submit error", e);
+    } finally {
+      setIsSubmittingReview(false);
+      setShowReviewModal(false);
+      router.push("/dashboard");
+    }
   };
 
   const formatTimer = (totalSecs: number) => {
@@ -741,6 +774,76 @@ export default function RoomPage({
       <div className="h-screen bg-[#090d16] text-white flex flex-col overflow-hidden font-mono">
         {/* Custom Glassmorphism Modal */}
         <CustomModal config={modalConfig} onClose={closeModal} />
+
+        {/* Post-Session Review & Rating Modal */}
+        {showReviewModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <div className="fixed inset-0 bg-black/80 backdrop-blur-md animate-in fade-in duration-200" />
+            <div className="relative w-full max-w-md bg-[#0f172a] border border-white/10 rounded-3xl p-6 shadow-2xl space-y-6 z-10 animate-in zoom-in-95 duration-200 font-sans">
+              <div className="text-center space-y-2">
+                <div className="w-12 h-12 rounded-2xl bg-amber-500/20 text-amber-400 border border-amber-500/30 flex items-center justify-center mx-auto">
+                  <Star className="w-6 h-6 fill-amber-400" />
+                </div>
+                <h3 className="text-xl font-bold text-white">Como foi sua Mentoria?</h3>
+                <p className="text-xs text-slate-400">
+                  Sua avaliação ajuda a destacar os melhores mentores da comunidade Unblock.dev.
+                </p>
+              </div>
+
+              <div className="flex justify-center gap-2">
+                {[1, 2, 3, 4, 5].map((star) => (
+                  <button
+                    key={star}
+                    type="button"
+                    onClick={() => setReviewRating(star)}
+                    onMouseEnter={() => setHoverRating(star)}
+                    onMouseLeave={() => setHoverRating(0)}
+                    className="p-1.5 transition transform hover:scale-110 cursor-pointer"
+                  >
+                    <Star
+                      className={`w-8 h-8 ${
+                        (hoverRating || reviewRating) >= star
+                          ? "text-amber-400 fill-amber-400 drop-shadow-[0_0_8px_rgba(251,191,36,0.5)]"
+                          : "text-slate-600"
+                      }`}
+                    />
+                  </button>
+                ))}
+              </div>
+
+              <div className="space-y-1.5 font-mono text-xs">
+                <textarea
+                  rows={3}
+                  value={reviewComment}
+                  onChange={(e) => setReviewComment(e.target.value)}
+                  placeholder="Escreva um feedback construtivo para o mentor (opcional)..."
+                  className="w-full p-3 bg-slate-900 border border-white/10 rounded-xl text-white placeholder:text-slate-600 focus:outline-none focus:border-indigo-500 resize-none font-sans"
+                />
+              </div>
+
+              <div className="flex items-center justify-end gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowReviewModal(false);
+                    router.push("/dashboard");
+                  }}
+                  className="px-4 py-2 text-xs font-semibold text-slate-400 hover:text-white transition cursor-pointer"
+                >
+                  Pular
+                </button>
+                <button
+                  type="button"
+                  onClick={handleSubmitReview}
+                  disabled={isSubmittingReview}
+                  className="px-6 py-2.5 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-white font-bold rounded-xl text-xs transition shadow-lg shadow-amber-500/20 cursor-pointer flex items-center gap-2"
+                >
+                  {isSubmittingReview ? "Enviando..." : "Enviar Avaliação"}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Room Header */}
         <header className="h-14 px-4 bg-[#0f172a]/90 border-b border-white/10 flex items-center justify-between font-sans">

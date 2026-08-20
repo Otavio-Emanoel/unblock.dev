@@ -113,14 +113,19 @@ func (h *SessionHandler) GetSession(w http.ResponseWriter, r *http.Request) {
 
 func (h *SessionHandler) EndSession(w http.ResponseWriter, r *http.Request) {
 	idHex := chi.URLParam(r, "id")
-	oid, err := bson.ObjectIDFromHex(idHex)
-	if err != nil {
-		response.Error(w, http.StatusBadRequest, "ID de sessão inválido")
-		return
-	}
+	var session *domain.Session
 
-	session, err := h.sessionRepo.GetByID(r.Context(), oid)
-	if err != nil || session == nil {
+	oid, err := bson.ObjectIDFromHex(idHex)
+	if err == nil {
+		session, _ = h.sessionRepo.GetByID(r.Context(), oid)
+		if session == nil {
+			session, _ = h.sessionRepo.GetByRequestID(r.Context(), oid)
+		}
+	}
+	if session == nil {
+		session, _ = h.sessionRepo.GetByRoomName(r.Context(), idHex)
+	}
+	if session == nil {
 		response.Error(w, http.StatusNotFound, "Sessão não encontrada")
 		return
 	}
@@ -146,7 +151,7 @@ func (h *SessionHandler) EndSession(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	updated, _ := h.sessionRepo.GetByID(r.Context(), oid)
+	updated, _ := h.sessionRepo.GetByID(r.Context(), session.ID)
 
 	// Notify room participants via PubSub
 	if h.pubSubRepo != nil {

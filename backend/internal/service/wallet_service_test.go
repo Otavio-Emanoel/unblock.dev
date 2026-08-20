@@ -54,6 +54,15 @@ func (m *mockSessionRepo) GetByID(ctx context.Context, id bson.ObjectID) (*domai
 	return nil, nil
 }
 
+func (m *mockSessionRepo) GetByRequestID(ctx context.Context, requestID bson.ObjectID) (*domain.Session, error) {
+	for _, s := range m.sessions {
+		if s.RequestID == requestID {
+			return s, nil
+		}
+	}
+	return nil, nil
+}
+
 func (m *mockSessionRepo) GetByRoomName(ctx context.Context, roomName string) (*domain.Session, error) {
 	if s, ok := m.sessions[roomName]; ok {
 		return s, nil

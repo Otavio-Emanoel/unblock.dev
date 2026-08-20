@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 
-	"unblock-backend/internal/domain"
+	"unblock-backend/internal/middleware"
 	"unblock-backend/internal/service"
 	"unblock-backend/pkg/response"
 )
@@ -55,8 +55,8 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *AuthHandler) Me(w http.ResponseWriter, r *http.Request) {
-	user, ok := r.Context().Value("user").(*domain.User)
-	if !ok || user == nil {
+	user := middleware.GetUserFromContext(r.Context())
+	if user == nil {
 		response.Error(w, http.StatusUnauthorized, "Unauthorized")
 		return
 	}

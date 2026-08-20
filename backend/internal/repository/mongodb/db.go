@@ -128,5 +128,23 @@ func (c *Client) initIndexes(ctx context.Context) error {
 		return fmt.Errorf("transactions indexes error: %w", err)
 	}
 
+	// 5. Reviews collection
+	revColl := c.DB.Collection("reviews")
+	_, err = revColl.Indexes().CreateMany(ctx, []mongo.IndexModel{
+		{
+			Keys: bson.D{
+				{Key: "mentor_id", Value: 1},
+				{Key: "created_at", Value: -1},
+			},
+		},
+		{
+			Keys:    bson.D{{Key: "session_id", Value: 1}},
+			Options: options.Index().SetUnique(true),
+		},
+	})
+	if err != nil {
+		return fmt.Errorf("reviews indexes error: %w", err)
+	}
+
 	return nil
 }
