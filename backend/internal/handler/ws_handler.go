@@ -261,11 +261,15 @@ func (c *WSClient) readPump() {
 				outBytes, _ := json.Marshal(incoming)
 				c.Hub.broadcastToSession(c.RoomID, incoming.SessionID, c, outBytes)
 				continue
+			default:
+				// Route unrecognized messages only within participant's room if set
+				if c.RoomID != "" {
+					incoming.SenderID = c.UserID
+					outBytes, _ := json.Marshal(incoming)
+					c.Hub.broadcastToSession(c.RoomID, incoming.SessionID, c, outBytes)
+				}
 			}
 		}
-
-		// Echo / Broadcast general message if received
-		c.Hub.broadcast <- message
 	}
 }
 

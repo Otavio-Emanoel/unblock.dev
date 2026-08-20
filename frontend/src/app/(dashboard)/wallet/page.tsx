@@ -9,6 +9,7 @@ import { CustomModal, ModalConfig } from "@/components/shared/CustomModal";
 
 export default function WalletPage() {
   const user = useAuthStore((s) => s.user);
+  const setUser = useAuthStore((s) => s.setUser);
   const isMentor = user?.role?.toLowerCase() === "mentor";
 
   const [balanceCents, setBalanceCents] = useState<number>(user?.wallet?.balance_cents || 0);
@@ -36,6 +37,15 @@ export default function WalletPage() {
     try {
       const balRes = await api.wallet.getBalance();
       setBalanceCents(balRes.balance_cents);
+      if (user) {
+        setUser({
+          ...user,
+          wallet: {
+            balance_cents: balRes.balance_cents,
+            currency: user.wallet?.currency || "BRL",
+          },
+        });
+      }
       const txsRes = await api.wallet.listTransactions();
       setTransactions(txsRes || []);
     } catch (err) {
@@ -56,6 +66,15 @@ export default function WalletPage() {
       const tx = await api.wallet.deposit(amountCents, "PIX");
       setSuccessMsg(`Depósito de R$ ${(amountCents / 100).toFixed(2)} realizado com sucesso via Pix!`);
       setBalanceCents(tx.balance_after_cents);
+      if (user) {
+        setUser({
+          ...user,
+          wallet: {
+            balance_cents: tx.balance_after_cents,
+            currency: user.wallet?.currency || "BRL",
+          },
+        });
+      }
       await loadWalletData();
     } catch (err: any) {
       setErrorMsg(err.message || "Erro ao realizar depósito.");

@@ -121,6 +121,10 @@ func (s *MatchmakerService) AcceptSOS(ctx context.Context, mentorUser *domain.Us
 		return nil, errors.New("este chamado não está mais disponível")
 	}
 
+	if req.ClientID == mentorUser.ID {
+		return nil, errors.New("você não pode aceitar seu próprio chamado de mentoria")
+	}
+
 	// Update Request status to ACCEPTED
 	mentorID := mentorUser.ID
 	if err := s.reqRepo.UpdateStatus(ctx, reqID, domain.RequestStatusAccepted, &mentorID); err != nil {

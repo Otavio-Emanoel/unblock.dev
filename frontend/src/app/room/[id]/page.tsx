@@ -30,6 +30,8 @@ import {
   CloudCheck,
   Cloud,
   Star,
+  Copy,
+  Check,
 } from "lucide-react";
 import { Room, RoomEvent, Track } from "livekit-client";
 import { api } from "@/lib/api";
@@ -135,6 +137,7 @@ export default function RoomPage({
   // Auto-Save Status
   const [saveStatus, setSaveStatus] = useState<"saved" | "saving" | "unsaved">("saved");
   const [lastSavedTime, setLastSavedTime] = useState<string>("agora");
+  const [copiedLink, setCopiedLink] = useState(false);
 
   // Media Controls State (DEFAULT: OFF / MUTED)
   const [isMuted, setIsMuted] = useState(true);
@@ -873,6 +876,22 @@ export default function RoomPage({
                 <span className="text-[10px] text-slate-500">(R$ {minuteRateBrl}/min)</span>
               </div>
             </div>
+
+            {/* Copy Room Link Button */}
+            <button
+              onClick={() => {
+                if (typeof navigator !== "undefined") {
+                  navigator.clipboard.writeText(window.location.href);
+                  setCopiedLink(true);
+                  setTimeout(() => setCopiedLink(false), 2000);
+                }
+              }}
+              title="Copiar Link da Sala de Mentoria"
+              className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 bg-white/5 hover:bg-white/10 text-slate-300 hover:text-white border border-white/10 rounded-xl text-xs transition cursor-pointer"
+            >
+              {copiedLink ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
+              <span>{copiedLink ? "Link Copiado!" : "Copiar Link"}</span>
+            </button>
 
             <button
               onClick={handleEndSession}

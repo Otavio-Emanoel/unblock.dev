@@ -5,6 +5,7 @@ import (
 	"net/http"
 
 	"unblock-backend/internal/domain"
+	"unblock-backend/internal/middleware"
 	"unblock-backend/internal/service"
 	"unblock-backend/pkg/response"
 )
@@ -22,14 +23,19 @@ func NewWalletHandler(ws *service.WalletService, tr domain.TransactionRepository
 }
 
 func (h *WalletHandler) GetBalance(w http.ResponseWriter, r *http.Request) {
-	user, ok := r.Context().Value("user").(*domain.User)
-	if !ok || user == nil {
-		response.Error(w, http.StatusUnauthorized, "Unauthorized")
+	user := middleware.GetUserFromContext(r.Context())
+	if user == nil {
+		response.Error(w, http.StatusUnauthorized, "Não autenticado")
 		return
 	}
 
+	bal, err := h.walletSvc.GetUserBalance(r.Context(), user.ID)
+	if err != nil {
+		bal = user.Wallet.BalanceCents
+	}
+
 	response.JSON(w, http.StatusOK, map[string]int64{
-		"balance_cents": user.Wallet.BalanceCents,
+		"balance_cents": bal,
 	})
 }
 
@@ -39,15 +45,15 @@ type DepositDTO struct {
 }
 
 func (h *WalletHandler) Deposit(w http.ResponseWriter, r *http.Request) {
-	user, ok := r.Context().Value("user").(*domain.User)
-	if !ok || user == nil {
-		response.Error(w, http.StatusUnauthorized, "Unauthorized")
+	user := middleware.GetUserFromContext(r.Context())
+	if user == nil {
+		response.Error(w, http.StatusUnauthorized, "Não autenticado")
 		return
 	}
 
 	var dto DepositDTO
 	if err := json.NewDecoder(r.Body).Decode(&dto); err != nil {
-		response.Error(w, http.StatusBadRequest, "Invalid request payload")
+		response.Error(w, http.StatusBadRequest, "Payload inválido")
 		return
 	}
 
@@ -66,16 +72,20 @@ func (h *WalletHandler) Deposit(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *WalletHandler) ListTransactions(w http.ResponseWriter, r *http.Request) {
-	user, ok := r.Context().Value("user").(*domain.User)
-	if !ok || user == nil {
-		response.Error(w, http.StatusUnauthorized, "Unauthorized")
+	user := middleware.GetUserFromContext(r.Context())
+	if user == nil {
+		response.Error(w, http.StatusUnauthorized, "Não autenticado")
 		return
 	}
 
 	txs, err := h.txRepo.ListByUserID(r.Context(), user.ID)
 	if err != nil {
-		response.Error(w, http.StatusInternalServerError, "Failed to list transactions")
+		response.Error(w, http.StatusInternalServerError, "Falha ao listar transações")
 		return
+	}
+
+	if txs == nil {
+		txs = []*domain.Transaction{}
 	}
 
 	response.JSON(w, http.StatusOK, txs)

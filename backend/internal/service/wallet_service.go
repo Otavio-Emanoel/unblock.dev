@@ -41,19 +41,30 @@ func NewWalletService(
 	}
 }
 
+func (s *WalletService) GetUserBalance(ctx context.Context, userID bson.ObjectID) (int64, error) {
+	user, err := s.userRepo.GetByID(ctx, userID)
+	if err != nil || user == nil {
+		return 0, errors.New("user not found")
+	}
+	return user.Wallet.BalanceCents, nil
+}
+
 func (s *WalletService) DepositCredits(ctx context.Context, userIDHex string, amountCents int64, gateway, paymentExtID string) (*domain.Transaction, error) {
 	if amountCents <= 0 {
-		return nil, errors.New("deposit amount must be greater than zero")
+		return nil, errors.New("o valor do depósito deve ser maior que zero")
+	}
+	if amountCents > 1000000 { // Max R$ 10,000.00
+		return nil, errors.New("o valor do depósito excede o limite máximo permitido de R$ 10.000,00")
 	}
 
 	uid, err := bson.ObjectIDFromHex(userIDHex)
 	if err != nil {
-		return nil, errors.New("invalid user ID")
+		return nil, errors.New("ID de usuário inválido")
 	}
 
 	user, err := s.userRepo.GetByID(ctx, uid)
 	if err != nil || user == nil {
-		return nil, errors.New("user not found")
+		return nil, errors.New("usuário não encontrado")
 	}
 
 	newBalance := user.Wallet.BalanceCents + amountCents
