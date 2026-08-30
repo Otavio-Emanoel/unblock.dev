@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 
+	"unblock-backend/internal/domain"
 	"unblock-backend/internal/middleware"
 	"unblock-backend/internal/service"
 	"unblock-backend/pkg/response"
@@ -62,4 +63,38 @@ func (h *AuthHandler) Me(w http.ResponseWriter, r *http.Request) {
 	}
 
 	response.JSON(w, http.StatusOK, user)
+}
+
+type UpdateMentorOnlineDTO struct {
+	IsOnline bool `json:"is_online"`
+}
+
+func (h *AuthHandler) UpdateMentorOnline(w http.ResponseWriter, r *http.Request) {
+	user := middleware.GetUserFromContext(r.Context())
+	if user == nil {
+		response.Error(w, http.StatusUnauthorized, "Não autenticado")
+		return
+	}
+
+	if user.Role != domain.RoleMentor && user.Role != domain.RoleAdmin {
+		response.Error(w, http.StatusForbidden, "Apenas mentores podem alterar o status de disponibilidade")
+		return
+	}
+
+	var dto UpdateMentorOnlineDTO
+	if err := json.NewDecoder(r.Body).Decode(&dto); err != nil {
+		response.Error(w, http.StatusBadRequest, "Payload inválido")
+		return
+	}
+
+	if err := h.authSvc.SetMentorOnlineStatus(r.Context(), user.ID, dto.IsOnline); err != nil {
+		response.Error(w, http.StatusInternalServerError, "Erro ao atualizar status de disponibilidade")
+		return
+	}
+
+	response.JSON(w, http.StatusOK, map[string]interface{}{
+		"success":   true,
+		"is_online": dto.IsOnline,
+		"message":   "Status atualizado com sucesso",
+	})
 }

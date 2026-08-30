@@ -223,3 +223,7 @@ func (s *AuthService) GetUserByID(ctx context.Context, idHex string) (*domain.Us
 	}
 	return s.userRepo.GetByID(ctx, oid)
 }
+
+func (s *AuthService) SetMentorOnlineStatus(ctx context.Context, mentorID bson.ObjectID, isOnline bool) error {
+	return s.userRepo.SetMentorOnlineStatus(ctx, mentorID, isOnline)
+}

@@ -77,6 +77,11 @@ export const api = {
         body: JSON.stringify(data),
       }),
     me: () => apiFetch<any>("/api/auth/me"),
+    updateMentorOnlineStatus: (isOnline: boolean) =>
+      apiFetch<{ success: boolean; is_online: boolean; message: string }>("/api/auth/mentor/online", {
+        method: "PUT",
+        body: JSON.stringify({ is_online: isOnline }),
+      }),
   },
 
   requests: {

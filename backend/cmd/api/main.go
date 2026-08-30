@@ -114,6 +114,7 @@ func main() {
 
 		// User
 		pr.Get("/api/auth/me", authHandler.Me)
+		pr.Put("/api/auth/mentor/online", authHandler.UpdateMentorOnline)
 
 		// SOS Requests
 		pr.Post("/api/requests", reqHandler.CreateSOS)

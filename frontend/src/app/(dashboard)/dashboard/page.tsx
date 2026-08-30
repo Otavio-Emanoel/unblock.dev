@@ -57,6 +57,9 @@ export default function UnifiedDashboardPage() {
       setBalanceCents(bal.balance_cents);
 
       if (isMentor) {
+        if (user?.mentor_profile?.is_online !== undefined) {
+          setIsOnline(user.mentor_profile.is_online);
+        }
         const queue = await api.requests.listOpen();
         setOpenQueue(queue || []);
       } else {
@@ -65,6 +68,17 @@ export default function UnifiedDashboardPage() {
       }
     } catch (err) {
       console.error("Error loading dashboard data", err);
+    }
+  };
+
+  const handleToggleOnline = async () => {
+    const nextState = !isOnline;
+    setIsOnline(nextState);
+    try {
+      await api.auth.updateMentorOnlineStatus(nextState);
+    } catch (err: any) {
+      console.error("Failed to update mentor online status", err);
+      setIsOnline(!nextState); // Rollback on error
     }
   };
 
@@ -347,7 +361,7 @@ export default function UnifiedDashboardPage() {
               {/* Online Toggle Button */}
               <div className="flex items-center gap-4">
                 <button
-                  onClick={() => setIsOnline(!isOnline)}
+                  onClick={handleToggleOnline}
                   className={`px-6 py-3.5 rounded-2xl font-bold text-xs transition flex items-center gap-3 border shadow-xl ${
                     isOnline
                       ? "bg-emerald-600 hover:bg-emerald-500 text-white border-emerald-400/40 glow-success"
