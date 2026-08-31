@@ -117,11 +117,12 @@ unblock.dev/
 
 ## 📖 Documentação Detalhada do Projeto
 
-Para conferir todos os detalhes técnicos de implementação, consulte os manuais específicos localizados no diretório [`docs/`](file:///c:/Users/Aluno/Downloads/unblock.dev/docs):
+Para conferir todos os detalhes técnicos e o guia passo a passo de utilização, consulte os manuais específicos localizados no diretório [`docs/`](./docs):
 
-- 📘 **[Documentação de Arquitetura Frontend](file:///c:/Users/Aluno/Downloads/unblock.dev/docs/frontend.md)**: Mapeamento de telas, layouts da sala imersiva, concorrência de tempo real e design system.
-- 📙 **[Documentação de Arquitetura Backend](file:///c:/Users/Aluno/Downloads/unblock.dev/docs/backend.md)**: Clean Architecture em Go, algoritmo da `TickerEngine`, WebSocket Hub e prevenção de race condition.
-- 🟢 **[Documentação do Banco de Dados (MongoDB)](file:///c:/Users/Aluno/Downloads/unblock.dev/docs/database.md)**: Schemas BSON, índices compostos e TTL, transações ACID e extrato financeiro imutável.
+- 📚 **[Guia Completo de Uso do Sistema](./docs/guia-de-uso.md)**: Manual detalhado para desenvolvedores e mentores, cobrindo abertura de chamados SOS, workspace colaborativo, atalhos de teclado, WebRTC, gestão de carteira e liquidação financeira.
+- 📘 **[Documentação de Arquitetura Frontend](./docs/frontend.md)**: Mapeamento de telas, layouts da sala imersiva, concorrência de tempo real e design system.
+- 📙 **[Documentação de Arquitetura Backend](./docs/backend.md)**: Clean Architecture em Go, algoritmo da `TickerEngine`, WebSocket Hub e prevenção de race condition.
+- 🟢 **[Documentação do Banco de Dados (MongoDB)](./docs/database.md)**: Schemas BSON, índices compostos e TTL, transações ACID e extrato financeiro imutável.
 
 ---
 
