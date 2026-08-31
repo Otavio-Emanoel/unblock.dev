@@ -72,15 +72,19 @@ func (s *MatchmakerService) CreateSOS(ctx context.Context, clientUser *domain.Us
 	}
 
 	// Cache user balance in Redis
-	_ = s.balanceCache.SetBalance(ctx, clientUser.ID.Hex(), clientUser.Wallet.BalanceCents, 24*time.Hour)
+	if s.balanceCache != nil {
+		_ = s.balanceCache.SetBalance(ctx, clientUser.ID.Hex(), clientUser.Wallet.BalanceCents, 24*time.Hour)
+	}
 
 	// Publish SOS event to Redis Pub/Sub for instant real-time broadcast to mentors
-	eventPayload := map[string]interface{}{
-		"type":    "REQUEST_CREATED",
-		"request": req,
+	if s.pubSubRepo != nil {
+		eventPayload := map[string]interface{}{
+			"type":    "REQUEST_CREATED",
+			"request": req,
+		}
+		msgBytes, _ := json.Marshal(eventPayload)
+		_ = s.pubSubRepo.PublishSOS(ctx, string(msgBytes))
 	}
-	msgBytes, _ := json.Marshal(eventPayload)
-	_ = s.pubSubRepo.PublishSOS(ctx, string(msgBytes))
 
 	return req, nil
 }
@@ -169,17 +173,19 @@ func (s *MatchmakerService) AcceptSOS(ctx context.Context, mentorUser *domain.Us
 	}
 
 	// Publish REQUEST_ACCEPTED event to Redis Pub/Sub for instant client notification & queue update
-	acceptEvent := map[string]interface{}{
-		"type":         "REQUEST_ACCEPTED",
-		"request_id":   req.ID.Hex(),
-		"session_id":   session.ID.Hex(),
-		"client_id":    req.ClientID.Hex(),
-		"mentor_id":    mentorUser.ID.Hex(),
-		"mentor_name":  mentorUser.Name,
-		"livekit_room": roomName,
+	if s.pubSubRepo != nil {
+		acceptEvent := map[string]interface{}{
+			"type":         "REQUEST_ACCEPTED",
+			"request_id":   req.ID.Hex(),
+			"session_id":   session.ID.Hex(),
+			"client_id":    req.ClientID.Hex(),
+			"mentor_id":    mentorUser.ID.Hex(),
+			"mentor_name":  mentorUser.Name,
+			"livekit_room": roomName,
+		}
+		acceptBytes, _ := json.Marshal(acceptEvent)
+		_ = s.pubSubRepo.PublishSOS(ctx, string(acceptBytes))
 	}
-	acceptBytes, _ := json.Marshal(acceptEvent)
-	_ = s.pubSubRepo.PublishSOS(ctx, string(acceptBytes))
 
 	return &AcceptResult{
 		Session:     session,
