@@ -140,3 +140,82 @@ func TestWalletService_DepositCredits(t *testing.T) {
 		t.Errorf("Expected balance 6000, got %d", updatedUser.Wallet.BalanceCents)
 	}
 }
+
+func TestWalletService_FinalizeRoomSession(t *testing.T) {
+	userRepo := newMockUserRepo()
+	txRepo := &mockTxRepo{}
+	sessRepo := &mockSessionRepo{sessions: make(map[string]*domain.Session)}
+
+	ctx := context.Background()
+
+	clientID := bson.NewObjectID()
+	mentorID := bson.NewObjectID()
+
+	client := &domain.User{
+		ID:    clientID,
+		Name:  "Dev Client",
+		Email: "dev@test.dev",
+		Role:  domain.RoleClient,
+		Wallet: domain.Wallet{
+			BalanceCents: 5000,
+			Currency:     "BRL",
+		},
+	}
+	mentor := &domain.User{
+		ID:    mentorID,
+		Name:  "Senior Mentor",
+		Email: "mentor@test.dev",
+		Role:  domain.RoleMentor,
+		Wallet: domain.Wallet{
+			BalanceCents: 1000,
+			Currency:     "BRL",
+		},
+	}
+	_ = userRepo.Create(ctx, client)
+	_ = userRepo.Create(ctx, mentor)
+
+	roomName := "room_test_finalize"
+	startedAt := time.Now().Add(-130 * time.Second) // 2m 10s -> 3 minutes billed
+	session := &domain.Session{
+		ID:              bson.NewObjectID(),
+		ClientID:        clientID,
+		MentorID:        mentorID,
+		MinuteRateCents: 300, // R$ 3,00 / min
+		Status:          domain.SessionStatusActive,
+		LiveKitRoomName: roomName,
+		StartedAt:       startedAt,
+	}
+	_ = sessRepo.Create(ctx, session)
+
+	walletSvc := service.NewWalletService(userRepo, sessRepo, txRepo, nil, nil, 20)
+
+	// Finalize Session
+	err := walletSvc.FinalizeRoomSession(ctx, roomName, false)
+	if err != nil {
+		t.Fatalf("FinalizeRoomSession failed: %v", err)
+	}
+
+	// 3 minutes * 300 cents = 900 cents total
+	// Platform fee (20%) = 180 cents
+	// Mentor earnings = 720 cents
+	updatedClient, _ := userRepo.GetByID(ctx, clientID)
+	if updatedClient.Wallet.BalanceCents != 4100 { // 5000 - 900
+		t.Errorf("Expected client balance 4100, got %d", updatedClient.Wallet.BalanceCents)
+	}
+
+	updatedMentor, _ := userRepo.GetByID(ctx, mentorID)
+	if updatedMentor.Wallet.BalanceCents != 1720 { // 1000 + 720
+		t.Errorf("Expected mentor balance 1720, got %d", updatedMentor.Wallet.BalanceCents)
+	}
+
+	// Check transactions created
+	clientTxs, _ := txRepo.ListByUserID(ctx, clientID)
+	if len(clientTxs) != 1 || clientTxs[0].AmountCents != -900 {
+		t.Errorf("Expected client debit transaction of -900, got %+v", clientTxs)
+	}
+
+	mentorTxs, _ := txRepo.ListByUserID(ctx, mentorID)
+	if len(mentorTxs) != 1 || mentorTxs[0].AmountCents != 720 {
+		t.Errorf("Expected mentor payout transaction of 720, got %+v", mentorTxs)
+	}
+}
