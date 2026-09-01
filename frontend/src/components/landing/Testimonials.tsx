@@ -1,6 +1,6 @@
 "use client";
 
-import { Star, Quote, Github, CheckCircle2, Sparkles } from "lucide-react";
+import { Star, Quote, CheckCircle2, Sparkles } from "lucide-react";
 import { motion } from "framer-motion";
 
 const REVIEWS = [
