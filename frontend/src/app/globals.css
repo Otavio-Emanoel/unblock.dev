@@ -49,7 +49,7 @@
 
 html {
   scroll-behavior: smooth;
-  scroll-padding-top: 80px;
+  scroll-padding-top: 90px;
 }
 
 body {
@@ -63,64 +63,125 @@ body {
 
 /* Glassmorphism Utilities */
 .glass-panel {
-  background: rgba(15, 23, 42, 0.7);
+  background: rgba(15, 23, 42, 0.75);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.09);
+}
+
+.glass-card {
+  background: rgba(18, 26, 46, 0.55);
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
   border: 1px solid rgba(255, 255, 255, 0.08);
 }
 
-.glass-card {
-  background: rgba(30, 41, 59, 0.4);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  border: 1px solid rgba(255, 255, 255, 0.06);
+.glass-pill {
+  background: rgba(255, 255, 255, 0.06);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.12);
 }
 
-.glass-pill {
-  background: rgba(255, 255, 255, 0.05);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+.glass-dropdown {
+  background: rgba(11, 17, 33, 0.92);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border: 1px solid rgba(255, 255, 255, 0.12);
 }
 
 /* Glow effects */
 .glow-primary {
-  box-shadow: 0 0 30px -5px rgba(99, 102, 241, 0.35);
+  box-shadow: 0 0 35px -5px rgba(99, 102, 241, 0.4);
 }
 
 .glow-sos {
-  box-shadow: 0 0 30px -5px rgba(255, 71, 87, 0.4);
+  box-shadow: 0 0 35px -5px rgba(255, 71, 87, 0.45);
 }
 
 .glow-success {
-  box-shadow: 0 0 25px -5px rgba(16, 185, 129, 0.35);
+  box-shadow: 0 0 30px -5px rgba(16, 185, 129, 0.4);
 }
 
-/* Pulse keyframes */
-@keyframes pulse-slow {
-  0%, 100% { opacity: 1; transform: scale(1); }
-  50% { opacity: 0.85; transform: scale(1.02); }
+.glow-amber {
+  box-shadow: 0 0 30px -5px rgba(245, 158, 11, 0.35);
 }
 
-.animate-pulse-slow {
-  animation: pulse-slow 4s infinite ease-in-out;
+/* Shimmer & Animations */
+@keyframes shimmer {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(200%); }
+}
+
+.animate-shimmer {
+  animation: shimmer 2.5s infinite;
+}
+
+@keyframes float-slow {
+  0%, 100% { transform: translateY(0px) rotate(0deg); }
+  50% { transform: translateY(-8px) rotate(1deg); }
+}
+
+.animate-float {
+  animation: float-slow 5s infinite ease-in-out;
+}
+
+@keyframes pulse-glow {
+  0%, 100% { opacity: 0.4; transform: scale(1); }
+  50% { opacity: 0.8; transform: scale(1.08); }
+}
+
+.animate-pulse-glow {
+  animation: pulse-glow 3s infinite ease-in-out;
+}
+
+/* Animated Border Gradient */
+@keyframes border-rotate {
+  0% { --border-angle: 0deg; }
+  100% { --border-angle: 360deg; }
+}
+
+.animated-border {
+  position: relative;
+}
+
+.animated-border::before {
+  content: "";
+  position: absolute;
+  inset: -1px;
+  border-radius: inherit;
+  padding: 1px;
+  background: linear-gradient(135deg, rgba(99, 102, 241, 0.6), rgba(236, 72, 153, 0.4), rgba(16, 185, 129, 0.6));
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  pointer-events: none;
 }
 
 /* Grid background pattern */
 .bg-grid-pattern {
   background-size: 40px 40px;
   background-image: 
-    linear-gradient(to right, rgba(255, 255, 255, 0.03) 1px, transparent 1px),
-    linear-gradient(to bottom, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
+    linear-gradient(to right, rgba(255, 255, 255, 0.035) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(255, 255, 255, 0.035) 1px, transparent 1px);
+}
+
+.bg-dot-pattern {
+  background-size: 24px 24px;
+  background-image: radial-gradient(circle, rgba(255, 255, 255, 0.07) 1px, transparent 1px);
 }
 
 /* Radial Glow Backdrops */
 .bg-radial-gradient {
-  background: radial-gradient(circle at 50% 0%, rgba(99, 102, 241, 0.15) 0%, transparent 65%);
+  background: radial-gradient(circle at 50% 0%, rgba(99, 102, 241, 0.18) 0%, transparent 65%);
 }
 
 .bg-radial-gradient-sos {
-  background: radial-gradient(circle at 50% 50%, rgba(255, 71, 87, 0.12) 0%, transparent 70%);
+  background: radial-gradient(circle at 50% 50%, rgba(255, 71, 87, 0.14) 0%, transparent 70%);
+}
+
+.bg-radial-gradient-emerald {
+  background: radial-gradient(circle at 50% 50%, rgba(16, 185, 129, 0.12) 0%, transparent 70%);
 }
 
 /* Custom Scrollbar */
